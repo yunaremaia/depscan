@@ -34,7 +34,10 @@ depscan scan .
 depscan scan /path/to/project
 
 # Output as JSON
-depscan scan . --json-output > deps.json
+depscan scan . --format json > deps.json
+
+# Output as SARIF 2.1.0 for GitHub Code Scanning / CI
+depscan scan . --format sarif > depscan.sarif
 
 # List all dependencies
 depscan list-deps .
@@ -65,7 +68,23 @@ Scan a directory for dependencies and detect potential issues.
 ```bash
 depscan scan . --typosquat  # Enable typosquat detection (default)
 depscan scan . --no-typosquat  # Disable typosquat detection
-depscan scan /path/to/project --json-output  # JSON output
+depscan scan /path/to/project --format json  # JSON output
+depscan scan /path/to/project --format sarif  # SARIF 2.1.0 output
+```
+
+### GitHub Code Scanning Integration
+
+```yaml
+- name: Run depscan
+  run: |
+    pip install depscan
+    depscan scan . --format sarif > depscan.sarif
+
+- name: Upload SARIF report
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: depscan.sarif
+  if: always()
 ```
 
 ### `depscan list-deps [PATH]`

@@ -12,6 +12,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from depscan.scanner import MultiScanner, Dependency
+from depscan.sarif import to_sarif
 
 console = Console()
 
@@ -32,22 +33,41 @@ def cli():
 
 @cli.command()
 @click.argument("path", default=".", type=click.Path(exists=True))
-@click.option("--json-output", "json_out", is_flag=True, help="Output as JSON")
+@click.option("--format", "output_format", type=click.Choice(["text", "json", "sarif"], case_sensitive=False), default=None, help="Output format: text, json, sarif")
+@click.option("--json-output", "json_out", is_flag=True, help="Output as JSON (deprecated: use --format json)")
+@click.option("--sarif", "sarif_out", is_flag=True, help="Output as SARIF 2.1.0 (deprecated: use --format sarif)")
 @click.option("--typosquat/--no-typosquat", default=True, help="Check for typosquats")
-def scan(path, json_out, typosquat):
+def scan(path, output_format, json_out, sarif_out, typosquat):
     """Scan a directory for dependencies."""
+    is_sarif = (output_format == "sarif") or sarif_out
+    is_json = (output_format == "json") or json_out
+
     scanner = MultiScanner()
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task(f"Scanning {path}...", total=None)
+    # If structured output, do not pollute stdout with progress bars
+    if is_sarif or is_json:
         results = scanner.scan_and_check(path)
-        progress.update(task, completed=True)
+    else:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task(f"Scanning {path}...", total=None)
+            results = scanner.scan_and_check(path)
+            progress.update(task, completed=True)
 
-    if json_out:
+    if is_sarif:
+        import importlib.metadata
+        try:
+            version = importlib.metadata.version("depscan")
+        except Exception:
+            version = "0.1.0"
+        sarif_doc = to_sarif(results, version=version)
+        click.echo(json.dumps(sarif_doc, indent=2))
+        return
+
+    if is_json:
         output = {
             "total": results["total"],
             "typosquats": [
@@ -156,6 +176,9 @@ def info():
         "[bold]Features:[/bold]\n"
         "• Multi-ecosystem scanning\n"
         "• Typosquat detection\n"
-        "• JSON output for automation",
+        "• JSON and SARIF 2.1.0 output for CI/CD automation",
         title="depscan — Info"
     ))
+
+if __name__ == "__main__":
+    cli()
