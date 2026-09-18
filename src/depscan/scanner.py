@@ -1,18 +1,17 @@
 """Multi-ecosystem dependency scanner."""
+
 from __future__ import annotations
 
 import json
-import re
-import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Any
 
 
 @dataclass
 class Vulnerability:
     """A known vulnerability."""
+
     id: str
     severity: str
     description: str
@@ -25,6 +24,7 @@ class Vulnerability:
 @dataclass
 class Dependency:
     """A dependency with version info."""
+
     name: str
     version: str
     ecosystem: str  # npm, pypi, cargo, go, etc
@@ -46,17 +46,19 @@ class DependencyParser:
     def parse_cargo_lock(content: str) -> list[Dependency]:
         """Parse Cargo.lock format."""
         deps = []
-        current = {}
+        current: dict[str, str] = {}
         in_package = False
         for line in content.splitlines():
             line = line.strip()
             if line == "[[package]]":
                 if current.get("name"):
-                    deps.append(Dependency(
-                        name=current.get("name", ""),
-                        version=current.get("version", ""),
-                        ecosystem="cargo",
-                    ))
+                    deps.append(
+                        Dependency(
+                            name=current.get("name", ""),
+                            version=current.get("version", ""),
+                            ecosystem="cargo",
+                        )
+                    )
                 current = {}
                 in_package = True
                 continue
@@ -67,11 +69,13 @@ class DependencyParser:
                 if key in ("name", "version"):
                     current[key] = value
         if current.get("name"):
-            deps.append(Dependency(
-                name=current.get("name", ""),
-                version=current.get("version", ""),
-                ecosystem="cargo",
-            ))
+            deps.append(
+                Dependency(
+                    name=current.get("name", ""),
+                    version=current.get("version", ""),
+                    ecosystem="cargo",
+                )
+            )
         return deps
 
     @staticmethod
@@ -86,11 +90,13 @@ class DependencyParser:
                     name = path.replace("node_modules/", "")
                     version = info.get("version", "")
                     if name and version:
-                        deps.append(Dependency(
-                            name=name,
-                            version=version,
-                            ecosystem="npm",
-                        ))
+                        deps.append(
+                            Dependency(
+                                name=name,
+                                version=version,
+                                ecosystem="npm",
+                            )
+                        )
         except json.JSONDecodeError:
             pass
         return deps
@@ -105,18 +111,22 @@ class DependencyParser:
                 continue
             if "==" in line:
                 name, _, version = line.partition("==")
-                deps.append(Dependency(
-                    name=name.strip(),
-                    version=version.strip(),
-                    ecosystem="pypi",
-                ))
+                deps.append(
+                    Dependency(
+                        name=name.strip(),
+                        version=version.strip(),
+                        ecosystem="pypi",
+                    )
+                )
             elif ">=" in line:
                 name, _, version = line.partition(">=")
-                deps.append(Dependency(
-                    name=name.strip(),
-                    version=version.strip(),
-                    ecosystem="pypi",
-                ))
+                deps.append(
+                    Dependency(
+                        name=name.strip(),
+                        version=version.strip(),
+                        ecosystem="pypi",
+                    )
+                )
         return deps
 
     @staticmethod
@@ -137,27 +147,31 @@ class DependencyParser:
                 if len(parts) >= 2:
                     name = parts[0]
                     version = parts[1].lstrip("v")
-                    deps.append(Dependency(
-                        name=name,
-                        version=version,
-                        ecosystem="go",
-                    ))
+                    deps.append(
+                        Dependency(
+                            name=name,
+                            version=version,
+                            ecosystem="go",
+                        )
+                    )
         return deps
 
     @staticmethod
     def parse_poetry_lock(content: str) -> list[Dependency]:
         """Parse poetry.lock (pyproject.toml companion)."""
         deps = []
-        current = {}
+        current: dict[str, str] = {}
         for line in content.splitlines():
             line = line.strip()
             if line == "[[package]]":
                 if current.get("name"):
-                    deps.append(Dependency(
-                        name=current.get("name", ""),
-                        version=current.get("version", ""),
-                        ecosystem="pypi",
-                    ))
+                    deps.append(
+                        Dependency(
+                            name=current.get("name", ""),
+                            version=current.get("version", ""),
+                            ecosystem="pypi",
+                        )
+                    )
                 current = {}
             elif "=" in line and not line.startswith("["):
                 key, _, value = line.partition("=")
@@ -166,11 +180,13 @@ class DependencyParser:
                 if key in ("name", "version"):
                     current[key] = value
         if current.get("name"):
-            deps.append(Dependency(
-                name=current.get("name", ""),
-                version=current.get("version", ""),
-                ecosystem="pypi",
-            ))
+            deps.append(
+                Dependency(
+                    name=current.get("name", ""),
+                    version=current.get("version", ""),
+                    ecosystem="pypi",
+                )
+            )
         return deps
 
 
@@ -184,32 +200,75 @@ class MultiScanner:
     def _load_typosquat_targets(self) -> list[str]:
         """Load common package names that are typosquat targets."""
         return [
-            "requests", "numpy", "pandas", "django", "flask", "fastapi",
-            "tensorflow", "pytorch", "transformers", "click", "rich",
-            "pytest", "black", "isort", "mypy", "sphinx", "jinja",
-            "sqlalchemy", "alembic", "celery", "redis", "boto3",
-            "botocore", "urllib3", "certifi", "idna", "charset",
-            "packaging", "setuptools", "wheel", "pip", "virtualenv",
-            "cryptography", "pyopenssl", "paramiko", "fabric",
-            "ansible", "terraform", "pulumi", "docker", "kubernetes",
-            "grpc", "protobuf", "thrift", "avro", "msgpack",
-            "ujson", "orjson", "simplejson", "pyyaml", "toml",
-            "httpx", "aiohttp", "tornado", "twisted", "gevent",
-            "pytest-cov", "pytest-xdist", "pytest-mock", "pytest-asyncio",
-            "django-rest-framework", "celery-beat", "django-celery-beat",
+            "requests",
+            "numpy",
+            "pandas",
+            "django",
+            "flask",
+            "fastapi",
+            "tensorflow",
+            "pytorch",
+            "transformers",
+            "click",
+            "rich",
+            "pytest",
+            "black",
+            "isort",
+            "mypy",
+            "sphinx",
+            "jinja",
+            "sqlalchemy",
+            "alembic",
+            "celery",
+            "redis",
+            "boto3",
+            "botocore",
+            "urllib3",
+            "certifi",
+            "idna",
+            "charset",
+            "packaging",
+            "setuptools",
+            "wheel",
+            "pip",
+            "virtualenv",
+            "cryptography",
+            "pyopenssl",
+            "paramiko",
+            "fabric",
+            "ansible",
+            "terraform",
+            "pulumi",
+            "docker",
+            "kubernetes",
+            "grpc",
+            "protobuf",
+            "thrift",
+            "avro",
+            "msgpack",
+            "ujson",
+            "orjson",
+            "simplejson",
+            "pyyaml",
+            "toml",
+            "httpx",
+            "aiohttp",
+            "tornado",
+            "twisted",
+            "gevent",
+            "pytest-cov",
+            "pytest-xdist",
+            "pytest-mock",
+            "pytest-asyncio",
+            "django-rest-framework",
+            "celery-beat",
+            "django-celery-beat",
         ]
 
     def scan_file(self, filepath: str) -> list[Dependency]:
         """Scan a single dependency file."""
         content = Path(filepath).read_text(encoding="utf-8", errors="replace")
         path = Path(filepath)
-
-        suffix_map = {
-            ".toml": ("cargo", self.parser.parse_cargo_lock),
-            ".json": ("npm", self.parser.parse_package_lock),
-            ".txt": ("pypi", self.parser.parse_requirements_txt),
-            ".mod": ("go", self.parser.parse_go_mod),
-        }
 
         # Try by filename
         filename = path.name.lower()
@@ -264,7 +323,7 @@ class MultiScanner:
             return self._levenshtein(s2, s1)
         if len(s2) == 0:
             return len(s1)
-        prev_row = range(len(s2) + 1)
+        prev_row = list(range(len(s2) + 1))
         for i, c1 in enumerate(s1):
             curr_row = [i + 1]
             for j, c2 in enumerate(s2):
@@ -275,23 +334,25 @@ class MultiScanner:
             prev_row = curr_row
         return prev_row[-1]
 
-    def scan_and_check(self, root: str = ".") -> dict:
+    def scan_and_check(self, root: str = ".") -> dict[str, Any]:
         """Full scan with typosquat detection."""
         deps = self.scan_directory(root)
-        results = {
-            "total": len(deps),
-            "typosquats": [],
-            "vulnerable": [],
-            "by_ecosystem": {},
-        }
+        by_ecosystem: dict[str, int] = {}
+        typosquats: list[Dependency] = []
+        vulnerable: list[Dependency] = []
 
         for dep in deps:
             eco = dep.ecosystem
-            if eco not in results["by_ecosystem"]:
-                results["by_ecosystem"][eco] = 0
-            results["by_ecosystem"][eco] += 1
+            if eco not in by_ecosystem:
+                by_ecosystem[eco] = 0
+            by_ecosystem[eco] += 1
 
             if self.check_typosquat(dep):
-                results["typosquats"].append(dep)
+                typosquats.append(dep)
 
-        return results
+        return {
+            "total": len(deps),
+            "typosquats": typosquats,
+            "vulnerable": vulnerable,
+            "by_ecosystem": by_ecosystem,
+        }

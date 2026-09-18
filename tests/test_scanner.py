@@ -1,8 +1,6 @@
 """Tests for dependency scanner."""
-import pytest
-from pathlib import Path
 
-from depscan.scanner import MultiScanner, DependencyParser, Dependency, Vulnerability
+from depscan.scanner import Dependency, DependencyParser, MultiScanner, Vulnerability
 
 
 class TestDependencyParser:
@@ -10,7 +8,7 @@ class TestDependencyParser:
         self.parser = DependencyParser()
 
     def test_parse_cargo_lock(self):
-        content = '''
+        content = """
 [[package]]
 name = "serde"
 version = "1.0.0"
@@ -18,7 +16,7 @@ version = "1.0.0"
 [[package]]
 name = "tokio"
 version = "1.0.0"
-'''
+"""
         deps = self.parser.parse_cargo_lock(content)
         assert len(deps) == 2
         assert deps[0].name == "serde"
@@ -26,7 +24,7 @@ version = "1.0.0"
         assert deps[0].ecosystem == "cargo"
 
     def test_parse_package_lock(self):
-        content = '''
+        content = """
 {
   "packages": {
     "node_modules/lodash": {
@@ -37,31 +35,31 @@ version = "1.0.0"
     }
   }
 }
-'''
+"""
         deps = self.parser.parse_package_lock(content)
         assert len(deps) == 2
 
     def test_parse_requirements_txt(self):
-        content = '''
+        content = """
 requests==2.28.0
 flask>=2.0.0
 numpy==1.24.0
-'''
+"""
         deps = self.parser.parse_requirements_txt(content)
         assert len(deps) == 3
 
     def test_parse_go_mod(self):
-        content = '''
+        content = """
 require (
     github.com/gin-gonic/gin v1.9.0
     github.com/stretchr/testify v1.8.0
 )
-'''
+"""
         deps = self.parser.parse_go_mod(content)
         assert len(deps) == 2
 
     def test_parse_poetry_lock(self):
-        content = '''
+        content = """
 [[package]]
 name = "django"
 version = "4.2.0"
@@ -69,7 +67,7 @@ version = "4.2.0"
 [[package]]
 name = "celery"
 version = "5.3.0"
-'''
+"""
         deps = self.parser.parse_poetry_lock(content)
         assert len(deps) == 2
 
@@ -77,8 +75,6 @@ version = "5.3.0"
 class TestMultiScanner:
     def setup_method(self):
         self.scanner = MultiScanner()
-
-    
 
     def test_typosquat_detection(self):
         dep = Dependency(name="raquests", version="1.0.0", ecosystem="pypi")
@@ -100,7 +96,9 @@ class TestScanDirectory:
     def test_scan_current_dir(self, tmp_path):
         # Create test files
         (tmp_path / "requirements.txt").write_text("flask==2.0.0\n")
-        (tmp_path / "go.mod").write_text("module test\nrequire github.com/test/test v1.0.0\n")
+        (tmp_path / "go.mod").write_text(
+            "module test\nrequire github.com/test/test v1.0.0\n"
+        )
 
         scanner = MultiScanner()
         deps = scanner.scan_directory(str(tmp_path))

@@ -1,17 +1,16 @@
 """CLI for depscan — Multi-ecosystem dependency scanner."""
+
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
-from depscan.scanner import MultiScanner, Dependency
+from depscan.scanner import Dependency, MultiScanner
 
 console = Console()
 
@@ -20,14 +19,13 @@ def _truncate(text: str, length: int = 40) -> str:
     """Truncate text with ellipsis."""
     if len(text) <= length:
         return text
-    return text[:length-3] + "..."
+    return text[: length - 3] + "..."
 
 
 @click.group()
 @click.version_option(package_name="depscan")
 def cli():
     """depscan — Multi-ecosystem dependency scanner."""
-    pass
 
 
 @cli.command()
@@ -59,12 +57,14 @@ def scan(path, json_out, typosquat):
         click.echo(json.dumps(output, indent=2))
         return
 
-    console.print(Panel(
-        f"[bold]Scan Results[/bold]\n"
-        f"Total dependencies: [cyan]{results['total']}[/cyan] | "
-        f"Typosquats: [red]{len(results['typosquats'])}[/cyan]",
-        title=f"depscan — {path}"
-    ))
+    console.print(
+        Panel(
+            f"[bold]Scan Results[/bold]\n"
+            f"Total dependencies: [cyan]{results['total']}[/cyan] | "
+            f"Typosquats: [red]{len(results['typosquats'])}[/cyan]",
+            title=f"depscan — {path}",
+        )
+    )
 
     if results["typosquats"]:
         table = Table(title="Potential Typosquats")
@@ -105,10 +105,12 @@ def list_deps(path, json_out):
         click.echo(json.dumps(output, indent=2))
         return
 
-    console.print(Panel(
-        f"[bold]Dependencies in {path}[/bold] — {len(deps)} found",
-        title="depscan — List"
-    ))
+    console.print(
+        Panel(
+            f"[bold]Dependencies in {path}[/bold] — {len(deps)} found",
+            title="depscan — List",
+        )
+    )
 
     table = Table()
     table.add_column("Name", width=30)
@@ -132,30 +134,36 @@ def check(name, version):
     is_typosquat = scanner.check_typosquat(dep)
 
     if is_typosquat:
-        console.print(Panel(
-            f"[red]⚠ Potential typosquat detected![/red]\n"
-            f"[bold]{name}[/bold] is similar to [bold]{dep.typosquat_target}[/bold]",
-            title="depscan — Check"
-        ))
+        console.print(
+            Panel(
+                f"[red]⚠ Potential typosquat detected![/red]\n"
+                f"[bold]{name}[/bold] is similar to [bold]{dep.typosquat_target}[/bold]",
+                title="depscan — Check",
+            )
+        )
     else:
-        console.print(Panel(
-            f"[green]✓ {name}@{version} — no issues detected[/green]",
-            title="depscan — Check"
-        ))
+        console.print(
+            Panel(
+                f"[green]✓ {name}@{version} — no issues detected[/green]",
+                title="depscan — Check",
+            )
+        )
 
 
 @cli.command()
 def info():
     """Show supported ecosystems and formats."""
-    console.print(Panel(
-        "[bold]Supported Ecosystems:[/bold]\n"
-        "• cargo (Cargo.lock)\n"
-        "• npm (package-lock.json)\n"
-        "• pypi (requirements.txt, poetry.lock)\n"
-        "• go (go.mod)\n\n"
-        "[bold]Features:[/bold]\n"
-        "• Multi-ecosystem scanning\n"
-        "• Typosquat detection\n"
-        "• JSON output for automation",
-        title="depscan — Info"
-    ))
+    console.print(
+        Panel(
+            "[bold]Supported Ecosystems:[/bold]\n"
+            "• cargo (Cargo.lock)\n"
+            "• npm (package-lock.json)\n"
+            "• pypi (requirements.txt, poetry.lock)\n"
+            "• go (go.mod)\n\n"
+            "[bold]Features:[/bold]\n"
+            "• Multi-ecosystem scanning\n"
+            "• Typosquat detection\n"
+            "• JSON output for automation",
+            title="depscan — Info",
+        )
+    )
