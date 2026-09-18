@@ -60,6 +60,47 @@ require (
         deps = self.parser.parse_go_mod(content)
         assert len(deps) == 2
 
+    def test_parse_go_mod_replace_single(self):
+        content = '''
+require (
+    github.com/gin-gonic/gin v1.9.0
+    github.com/foo/bar v1.2.3
+)
+
+replace github.com/foo/bar => github.com/foo/bar v1.5.0
+'''
+        deps = self.parser.parse_go_mod(content)
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["github.com/gin-gonic/gin"] == "1.9.0"
+        assert dep_map["github.com/foo/bar"] == "1.5.0"
+
+    def test_parse_go_mod_replace_block_and_local(self):
+        content = '''
+require (
+    github.com/a/b v1.0.0
+    github.com/c/d v2.0.0
+)
+
+replace (
+    github.com/a/b => github.com/a/b v1.1.0
+    github.com/c/d => ./local/d
+)
+'''
+        deps = self.parser.parse_go_mod(content)
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["github.com/a/b"] == "1.1.0"
+        assert dep_map["github.com/c/d"] == "./local/d"
+
+    def test_parse_go_mod_single_require(self):
+        content = '''
+require github.com/single/mod v0.9.1
+replace github.com/single/mod => github.com/single/mod v1.0.0
+'''
+        deps = self.parser.parse_go_mod(content)
+        assert len(deps) == 1
+        assert deps[0].name == "github.com/single/mod"
+        assert deps[0].version == "1.0.0"
+
     def test_parse_poetry_lock(self):
         content = '''
 [[package]]

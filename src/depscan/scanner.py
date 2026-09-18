@@ -121,18 +121,58 @@ class DependencyParser:
 
     @staticmethod
     def parse_go_mod(content: str) -> list[Dependency]:
-        """Parse go.mod require block."""
+        """Parse go.mod require and replace directives."""
         deps = []
+        replacements = {}
         in_require = False
-        for line in content.splitlines():
-            line = line.strip()
+        in_replace = False
+
+        for raw_line in content.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("//"):
+                continue
+
+            # Replace block
+            if line.startswith("replace ("):
+                in_replace = True
+                continue
+            if in_replace:
+                if line == ")":
+                    in_replace = False
+                    continue
+                if "=>" in line:
+                    parts = line.split("=>")
+                    if len(parts) == 2:
+                        old_name = parts[0].strip().split()[0]
+                        new_target = parts[1].strip()
+                        new_parts = new_target.split()
+                        if len(new_parts) >= 2:
+                            replacements[old_name] = new_parts[1].lstrip("v")
+                        elif len(new_parts) == 1:
+                            replacements[old_name] = new_target
+                continue
+
+            # Single-line replace
+            if line.startswith("replace ") and "=>" in line:
+                parts = line[8:].split("=>")
+                if len(parts) == 2:
+                    old_name = parts[0].strip().split()[0]
+                    new_target = parts[1].strip()
+                    new_parts = new_target.split()
+                    if len(new_parts) >= 2:
+                        replacements[old_name] = new_parts[1].lstrip("v")
+                    elif len(new_parts) == 1:
+                        replacements[old_name] = new_target
+                continue
+
+            # Require block
             if line.startswith("require ("):
                 in_require = True
                 continue
-            if in_require and line == ")":
-                in_require = False
-                continue
-            if in_require and " " in line:
+            if in_require:
+                if line == ")":
+                    in_require = False
+                    continue
                 parts = line.split()
                 if len(parts) >= 2:
                     name = parts[0]
@@ -142,6 +182,25 @@ class DependencyParser:
                         version=version,
                         ecosystem="go",
                     ))
+                continue
+
+            # Single-line require
+            if line.startswith("require ") and "(" not in line:
+                parts = line[8:].split()
+                if len(parts) >= 2:
+                    name = parts[0]
+                    version = parts[1].lstrip("v")
+                    deps.append(Dependency(
+                        name=name,
+                        version=version,
+                        ecosystem="go",
+                    ))
+
+        # Apply replacements to all dependencies
+        for dep in deps:
+            if dep.name in replacements:
+                dep.version = replacements[dep.name]
+
         return deps
 
     @staticmethod
