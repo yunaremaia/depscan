@@ -1,6 +1,7 @@
 README.md
 pyproject.toml
 src/depscan/__init__.py
+src/depscan/__main__.py
 src/depscan/cli.py
 src/depscan/formatter.py
 src/depscan/scanner.py
@@ -10,5 +11,6 @@ src/depscan.egg-info/dependency_links.txt
 src/depscan.egg-info/entry_points.txt
 src/depscan.egg-info/requires.txt
 src/depscan.egg-info/top_level.txt
+tests/test_cli.py
 tests/test_formatter.py
 tests/test_scanner.py

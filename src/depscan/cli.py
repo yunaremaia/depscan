@@ -40,6 +40,28 @@ def scan(path, json_out, markdown_out, typosquat):
     """Scan a directory for dependencies."""
     scanner = MultiScanner()
 
+    if json_out:
+        import io
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        try:
+            results = scanner.scan_and_check(path)
+        finally:
+            sys.stdout = old_stdout
+
+        output = {
+            "total": results["total"],
+            "typosquats": [
+                {"name": d.name, "version": d.version, "target": d.typosquat_target}
+                for d in results["typosquats"]
+            ],
+            "by_ecosystem": results["by_ecosystem"],
+        }
+        print(json.dumps(output, indent=2))
+        if results["typosquats"]:
+            sys.exit(1)
+        return
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -64,12 +86,20 @@ def scan(path, json_out, markdown_out, typosquat):
     if markdown_out:
         formatter = MarkdownFormatter()
         click.echo(formatter.format_full(results))
+        if results["typosquats"]:
+            sys.exit(1)
         return
 
+    from rich.text import Text
     console.print(Panel(
-        f"[bold]Scan Results[/bold]\n"
-        f"Total dependencies: [cyan]{results['total']}[/cyan] | "
-        f"Typosquats: [red]{len(results['typosquats'])}[/cyan]",
+        Text.assemble(
+            ("Scan Results", "bold"),
+            "\n",
+            ("Total dependencies: ", ""),
+            (str(results['total']), "cyan"),
+            (" | Typosquats: ", ""),
+            (str(len(results['typosquats'])), "red"),
+        ),
         title=f"depscan — {path}"
     ))
 
