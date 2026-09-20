@@ -41,6 +41,184 @@ version = "1.0.0"
         deps = self.parser.parse_package_lock(content)
         assert len(deps) == 2
 
+    def test_parse_package_lock_v1_legacy(self):
+        content = '''
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "lockfileVersion": 1,
+  "dependencies": {
+    "lodash": {
+      "version": "4.17.21"
+    },
+    "express": {
+      "version": "4.18.0"
+    }
+  }
+}
+'''
+        deps = self.parser.parse_package_lock(content)
+        assert len(deps) == 2
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["lodash"] == "4.17.21"
+        assert dep_map["express"] == "4.18.0"
+        assert all(d.ecosystem == "npm" for d in deps)
+
+    def test_parse_package_lock_v1_nested_dependencies(self):
+        content = '''
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "lockfileVersion": 1,
+  "dependencies": {
+    "express": {
+      "version": "4.18.0",
+      "dependencies": {
+        "accepts": {
+          "version": "1.3.8",
+          "dependencies": {
+            "mime-types": {
+              "version": "2.1.35"
+            }
+          }
+        }
+      }
+    },
+    "chalk": {
+      "version": "5.0.0"
+    }
+  }
+}
+'''
+        deps = self.parser.parse_package_lock(content)
+        assert len(deps) == 4
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["express"] == "4.18.0"
+        assert dep_map["accepts"] == "1.3.8"
+        assert dep_map["mime-types"] == "2.1.35"
+        assert dep_map["chalk"] == "5.0.0"
+
+    def test_parse_package_lock_v1_deduplication(self):
+        content = '''
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "lockfileVersion": 1,
+  "dependencies": {
+    "pkg-a": {
+      "version": "1.0.0",
+      "dependencies": {
+        "shared": {
+          "version": "2.0.0"
+        }
+      }
+    },
+    "pkg-b": {
+      "version": "1.0.0",
+      "dependencies": {
+        "shared": {
+          "version": "2.0.0"
+        }
+      }
+    }
+  }
+}
+'''
+        deps = self.parser.parse_package_lock(content)
+        assert len(deps) == 3
+        shared_deps = [d for d in deps if d.name == "shared"]
+        assert len(shared_deps) == 1
+        assert shared_deps[0].version == "2.0.0"
+
+    def test_parse_package_lock_v2(self):
+        content = '''
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "packages": {
+    "": {
+      "name": "my-app",
+      "version": "1.0.0"
+    },
+    "node_modules/lodash": {
+      "version": "4.17.21"
+    },
+    "node_modules/express": {
+      "version": "4.18.0"
+    }
+  },
+  "dependencies": {
+    "lodash": {
+      "version": "4.17.21"
+    },
+    "express": {
+      "version": "4.18.0"
+    }
+  }
+}
+'''
+        deps = self.parser.parse_package_lock(content)
+        assert len(deps) == 2
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["lodash"] == "4.17.21"
+        assert dep_map["express"] == "4.18.0"
+
+    def test_parse_package_lock_v2_fallback_when_packages_empty(self):
+        content = '''
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "packages": {
+    "": {
+      "name": "my-app",
+      "version": "1.0.0"
+    }
+  },
+  "dependencies": {
+    "lodash": {
+      "version": "4.17.21"
+    }
+  }
+}
+'''
+        deps = self.parser.parse_package_lock(content)
+        assert len(deps) == 1
+        assert deps[0].name == "lodash"
+        assert deps[0].version == "4.17.21"
+
+    def test_parse_package_lock_v3_scoped_and_nested(self):
+        content = '''
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "packages": {
+    "": {
+      "name": "my-app",
+      "version": "1.0.0"
+    },
+    "node_modules/@types/node": {
+      "version": "20.1.0"
+    },
+    "node_modules/foo/node_modules/bar": {
+      "version": "1.2.3"
+    }
+  }
+}
+'''
+        deps = self.parser.parse_package_lock(content)
+        assert len(deps) == 2
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["@types/node"] == "20.1.0"
+        assert dep_map["bar"] == "1.2.3"
+
+    def test_parse_package_lock_invalid_json(self):
+        assert self.parser.parse_package_lock("invalid json") == []
+        assert self.parser.parse_package_lock("[]") == []
+        assert self.parser.parse_package_lock("") == []
+
     def test_parse_requirements_txt(self):
         content = '''
 requests==2.28.0

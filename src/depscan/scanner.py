@@ -86,23 +86,77 @@ class DependencyParser:
 
     @staticmethod
     def parse_package_lock(content: str) -> list[Dependency]:
-        """Parse package-lock.json (npm)."""
-        deps = []
+        """Parse package-lock.json (npm). Supports lockfileVersion 1, 2, and 3."""
+        deps: list[Dependency] = []
         try:
             data = json.loads(content)
-            packages = data.get("packages", {})
-            for path, info in packages.items():
-                if path.startswith("node_modules/"):
-                    name = path.replace("node_modules/", "")
+        except (json.JSONDecodeError, TypeError):
+            return deps
+        if not isinstance(data, dict):
+            return deps
+
+        lockfile_version = data.get("lockfileVersion")
+        seen: set[tuple[str, str]] = set()
+
+        def _collect_legacy_deps(dependencies_dict: dict) -> None:
+            """Recursively collect dependencies from legacy npm dependencies tree."""
+            if not isinstance(dependencies_dict, dict):
+                return
+            queue = [dependencies_dict]
+            while queue:
+                current_dict = queue.pop(0)
+                if not isinstance(current_dict, dict):
+                    continue
+                for name, info in current_dict.items():
+                    if not isinstance(name, str) or not isinstance(info, dict):
+                        continue
                     version = info.get("version", "")
-                    if name and version:
-                        deps.append(Dependency(
-                            name=name,
-                            version=version,
-                            ecosystem="npm",
-                        ))
-        except json.JSONDecodeError:
-            pass
+                    if isinstance(version, str) and name and version:
+                        key = (name, version)
+                        if key not in seen:
+                            seen.add(key)
+                            deps.append(Dependency(
+                                name=name,
+                                version=version,
+                                ecosystem="npm",
+                            ))
+                    nested = info.get("dependencies")
+                    if isinstance(nested, dict):
+                        queue.append(nested)
+
+        # For lockfileVersion 1, only legacy `dependencies` exists
+        if lockfile_version == 1:
+            raw_dependencies = data.get("dependencies")
+            if isinstance(raw_dependencies, dict):
+                _collect_legacy_deps(raw_dependencies)
+            return deps
+
+        # For lockfileVersion 2, 3, or unspecified, check `packages` first (npm v7+)
+        packages = data.get("packages")
+        if isinstance(packages, dict):
+            for path, info in packages.items():
+                if not isinstance(path, str) or not isinstance(info, dict):
+                    continue
+                if path.startswith("node_modules/"):
+                    parts = path.split("node_modules/")
+                    name = parts[-1]
+                    version = info.get("version", "")
+                    if isinstance(version, str) and name and version:
+                        key = (name, version)
+                        if key not in seen:
+                            seen.add(key)
+                            deps.append(Dependency(
+                                name=name,
+                                version=version,
+                                ecosystem="npm",
+                            ))
+
+        # Fallback to legacy `dependencies` if `packages` was absent, empty, or yielded no dependencies
+        if not deps:
+            raw_dependencies = data.get("dependencies")
+            if isinstance(raw_dependencies, dict):
+                _collect_legacy_deps(raw_dependencies)
+
         return deps
 
     @staticmethod
