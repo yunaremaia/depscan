@@ -301,6 +301,89 @@ version = "5.3.0"
         deps = self.parser.parse_poetry_lock(content)
         assert len(deps) == 2
 
+    def test_parse_gemfile_lock(self):
+        content = '''
+GEM
+  remote: https://rubygems.org/
+  specs:
+    actionpack (7.1.0)
+      actionview (= 7.1.0)
+      rack (>= 2.2.4)
+    rails (7.1.0)
+      actionpack (= 7.1.0)
+
+PLATFORMS
+  ruby
+  x86_64-linux
+
+DEPENDENCIES
+  rails (~> 7.1)
+
+BUNDLED WITH
+   2.4.0
+'''
+        deps = self.parser.parse_gemfile_lock(content)
+        assert len(deps) == 2
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["actionpack"] == "7.1.0"
+        assert dep_map["rails"] == "7.1.0"
+        assert all(d.ecosystem == "rubygems" for d in deps)
+
+    def test_parse_gemfile_lock_old_format(self):
+        # bundler 0.9.x listed gems directly under GEM, without "specs:".
+        content = '''
+GEM
+  remote: https://rubygems.org/
+    rack (1.6.0)
+    rake (12.0.0)
+
+PLATFORMS
+  ruby
+'''
+        deps = self.parser.parse_gemfile_lock(content)
+        assert len(deps) == 2
+        dep_map = {d.name: d.version for d in deps}
+        assert dep_map["rack"] == "1.6.0"
+        assert dep_map["rake"] == "12.0.0"
+
+    def test_parse_gemfile_lock_ignores_git_and_path_sections(self):
+        content = '''
+GIT
+  remote: https://github.com/example/gem.git
+  revision: abc123
+  specs:
+    gem_from_git (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rails (7.1.0)
+
+PATH
+  remote: ./local_gem
+  specs:
+    local_gem (0.0.1)
+'''
+        deps = self.parser.parse_gemfile_lock(content)
+        assert len(deps) == 1
+        assert deps[0].name == "rails"
+
+    def test_parse_gemfile_lock_platform_version_suffix(self):
+        content = '''
+GEM
+  remote: https://rubygems.org/
+  specs:
+    nokogiri (1.15.0-x86_64-linux)
+'''
+        deps = self.parser.parse_gemfile_lock(content)
+        assert len(deps) == 1
+        assert deps[0].name == "nokogiri"
+        assert deps[0].version == "1.15.0-x86_64-linux"
+
+    def test_parse_gemfile_lock_empty_or_malformed(self):
+        assert self.parser.parse_gemfile_lock("") == []
+        assert self.parser.parse_gemfile_lock("not a lockfile\nat all\n") == []
+
     def test_pipfile_lock_parsing(self):
         content = '''
 {
@@ -411,6 +494,50 @@ class TestScanDirectory:
         dir_deps = scanner.scan_directory(str(tmp_path))
         assert len(dir_deps) == 1
         assert dir_deps[0].name == "requests"
+
+    def test_scan_gemfile_lock(self, tmp_path):
+        lock_file = tmp_path / "Gemfile.lock"
+        lock_file.write_text(
+            "GEM\n"
+            "  remote: https://rubygems.org/\n"
+            "  specs:\n"
+            "    rails (7.1.0)\n"
+            "      rack (>= 2.2.4)\n"
+            "\n"
+            "DEPENDENCIES\n"
+            "  rails (~> 7.1)\n"
+        )
+        scanner = MultiScanner()
+        deps = scanner.scan_file(str(lock_file))
+        assert len(deps) == 1
+        assert deps[0].name == "rails"
+        assert deps[0].version == "7.1.0"
+        assert deps[0].ecosystem == "rubygems"
+
+        dir_deps = scanner.scan_directory(str(tmp_path))
+        assert len(dir_deps) == 1
+        assert dir_deps[0].name == "rails"
+
+    def test_gemfile_lock_typosquat_detection(self, tmp_path):
+        # "reqeusts" is one transposition away from the "requests" target.
+        lock_file = tmp_path / "Gemfile.lock"
+        lock_file.write_text(
+            "GEM\n"
+            "  remote: https://rubygems.org/\n"
+            "  specs:\n"
+            "    reqeusts (2.31.0)\n"
+        )
+        scanner = MultiScanner()
+        deps = scanner.scan_file(str(lock_file))
+        assert len(deps) == 1
+
+        assert scanner.check_typosquat(deps[0]) is True
+        assert deps[0].is_typosquat is True
+        assert deps[0].typosquat_target == "requests"
+
+        results = scanner.scan_and_check(str(tmp_path))
+        assert results["by_ecosystem"].get("rubygems") == 1
+        assert len(results["typosquats"]) == 1
 
 
 

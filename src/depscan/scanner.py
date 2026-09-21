@@ -32,6 +32,7 @@ LOCK_PATTERNS = [
     "requirements.txt",
     "go.mod",
     "poetry.lock",
+    "Gemfile.lock",
     "*.lock",
 ]
 
@@ -345,6 +346,51 @@ class DependencyParser:
             ))
         return deps
 
+    @staticmethod
+    def parse_gemfile_lock(content: str) -> list[Dependency]:
+        """Parse Gemfile.lock (Ruby/Bundler).
+
+        Handles both the classic format (bundler 0.9.x, gems listed directly
+        under the GEM section) and the modern format (bundler 1.x+, gems
+        listed under a ``specs:`` heading).  Only the GEM section is scanned;
+        gems resolved from GIT or PATH sources are ignored.
+        """
+        deps = []
+        in_gem_section = False
+        in_specs = False
+        spec_re = re.compile(r"^ {4}(\S+) \(([^)]+)\)\s*$")
+
+        for line in content.splitlines():
+            stripped = line.strip()
+
+            # Section headings start at column 0 (e.g. GEM, PLATFORMS,
+            # DEPENDENCIES, GIT, PATH, BUNDLED WITH).
+            if stripped and not line[0].isspace():
+                in_gem_section = stripped == "GEM"
+                in_specs = False
+                continue
+
+            if not in_gem_section or not stripped or stripped.startswith("#"):
+                continue
+
+            if not in_specs:
+                if stripped == "specs:":
+                    in_specs = True
+                    continue
+                # Old 0.9.x format: gems sit directly under GEM.  Skip
+                # metadata lines such as "remote: https://rubygems.org/".
+                if not line.startswith("    ") or ":" in stripped:
+                    continue
+
+            match = spec_re.match(line)
+            if match:
+                deps.append(Dependency(
+                    name=match.group(1),
+                    version=match.group(2),
+                    ecosystem="rubygems",
+                ))
+        return deps
+
 
 class MultiScanner:
     """Scan dependencies across multiple ecosystems."""
@@ -369,6 +415,8 @@ class MultiScanner:
             "httpx", "aiohttp", "tornado", "twisted", "gevent",
             "pytest-cov", "pytest-xdist", "pytest-mock", "pytest-asyncio",
             "django-rest-framework", "celery-beat", "django-celery-beat",
+            "rails", "rack", "rake", "devise", "puma", "sidekiq",
+            "resque", "rspec", "nokogiri", "activerecord",
         ]
 
     def scan_file(self, filepath: str) -> list[Dependency]:
@@ -397,6 +445,8 @@ class MultiScanner:
             return self.parser.parse_go_mod(content)
         elif "poetry.lock" in filename:
             return self.parser.parse_poetry_lock(content)
+        elif "gemfile.lock" in filename:
+            return self.parser.parse_gemfile_lock(content)
 
         return []
 

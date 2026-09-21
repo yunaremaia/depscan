@@ -62,14 +62,14 @@ depscan info
 
 ## Supported Formats
 
-| Ecosystem | File | Status |
-|-----------|------|--------|
-| Cargo | Cargo.lock | ✅ |
-| npm | package-lock.json | ✅ |
-| PyPI | requirements.txt | ✅ |
-| PyPI | poetry.lock | ✅ |
-| PyPI | Pipfile.lock | ✅ |
-| Go | go.mod | ✅ |
+| Ecosystem | File | Supported Versions / Details | Status |
+|-----------|------|------------------------------|--------|
+| Cargo | Cargo.lock | Cargo packages | ✅ |
+| npm | package-lock.json | `lockfileVersion` 1, 2, and 3 (direct & nested `dependencies`, `packages`) | ✅ |
+| PyPI | requirements.txt | Pinned dependencies | ✅ |
+| PyPI | poetry.lock | Poetry dependencies | ✅ |
+| PyPI | Pipfile.lock | Default & develop dependencies | ✅ |
+| Go | go.mod | Require directives & replace blocks | ✅ |
 
 ## CLI Reference
 
