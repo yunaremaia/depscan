@@ -220,14 +220,14 @@ class DependencyParser:
             if "==" in line:
                 name, _, version = line.partition("==")
                 deps.append(Dependency(
-                    name=name.strip(),
+                    name=name.partition("[")[0].strip(),
                     version=version.strip(),
                     ecosystem="pypi",
                 ))
             elif ">=" in line:
                 name, _, version = line.partition(">=")
                 deps.append(Dependency(
-                    name=name.strip(),
+                    name=name.partition("[")[0].strip(),
                     version=version.strip(),
                     ecosystem="pypi",
                 ))

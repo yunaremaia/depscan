@@ -237,6 +237,15 @@ numpy==1.24.0
         deps = self.parser.parse_requirements_txt(content)
         assert len(deps) == 3
 
+    def test_parse_requirements_txt_strips_extras(self):
+        content = "urllib3[security]==2.0.0\npackage[extra1,extra2]>=1.0.0\n"
+        deps = self.parser.parse_requirements_txt(content)
+        assert [(dep.name, dep.version) for dep in deps] == [
+            ("urllib3", "2.0.0"),
+            ("package", "1.0.0"),
+        ]
+
+
     def test_parse_go_mod(self):
         content = '''
 require (
