@@ -215,6 +215,7 @@ class DependencyParser:
         deps = []
         for line in content.splitlines():
             line = line.strip()
+            line = line.split(";", 1)[0].strip()
             if not line or line.startswith("#"):
                 continue
             if "==" in line:

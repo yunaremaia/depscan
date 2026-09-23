@@ -237,6 +237,14 @@ numpy==1.24.0
         deps = self.parser.parse_requirements_txt(content)
         assert len(deps) == 3
 
+    def test_parse_requirements_txt_strips_environment_markers(self):
+        content = 'certifi==2023.7.22; python_version >= "3.8"\nflask>=2.0; sys_platform == "win32"\n'
+        deps = self.parser.parse_requirements_txt(content)
+        assert [(dep.name, dep.version) for dep in deps] == [
+            ("certifi", "2023.7.22"),
+            ("flask", "2.0"),
+        ]
+
     def test_parse_go_mod(self):
         content = '''
 require (
