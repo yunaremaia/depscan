@@ -255,12 +255,34 @@ class DependencyParser:
         """Parse go.mod require and replace directives."""
         deps = []
         replacements = {}
+        exclusions: set[tuple[str, str]] = set()
         in_require = False
         in_replace = False
+        in_exclude = False
 
         for raw_line in content.splitlines():
             line = raw_line.strip()
             if not line or line.startswith("//"):
+                continue
+
+            # Exclude block
+            if line.startswith("exclude ("):
+                in_exclude = True
+                continue
+            if in_exclude:
+                if line == ")":
+                    in_exclude = False
+                    continue
+                parts = line.split()
+                if len(parts) >= 2:
+                    exclusions.add((parts[0], parts[1].lstrip("v")))
+                continue
+
+            # Single-line exclude
+            if line.startswith("exclude "):
+                parts = line[8:].split()
+                if len(parts) >= 2:
+                    exclusions.add((parts[0], parts[1].lstrip("v")))
                 continue
 
             # Replace block
@@ -327,7 +349,12 @@ class DependencyParser:
                         ecosystem="go",
                     ))
 
-        # Apply replacements to all dependencies
+        deps = [
+            dep for dep in deps
+            if (dep.name, dep.version) not in exclusions
+        ]
+
+        # Apply replacements to targeted dependencies
         for dep in deps:
             if dep.name in replacements:
                 dep.version = replacements[dep.name]
