@@ -175,6 +175,43 @@ def list_deps(path, json_out):
 
 
 @cli.command()
+@click.argument("path", default=".", type=click.Path(exists=True))
+@click.option(
+    "--allow-known",
+    is_flag=True,
+    help="Do not fail for known vulnerabilities; typosquats still fail",
+)
+@click.option("--sarif", "sarif_out", is_flag=True, help="Emit SARIF 2.1.0")
+def ci(path, allow_known, sarif_out):
+    """Enforce dependency security in CI."""
+    scanner = MultiScanner()
+    results = scanner.scan_and_check(path)
+
+    if sarif_out:
+        findings = findings_from_scan_results(results)
+        click.echo(json.dumps(to_sarif(findings, repo_root=path), indent=2))
+    else:
+        for dep in results.get("typosquats", []):
+            click.echo(
+                f"TYPOSQUAT: {dep.name} resembles {dep.typosquat_target}",
+                err=True,
+            )
+        if not allow_known:
+            for dep in results.get("vulnerable", []):
+                click.echo(
+                    f"VULNERABLE: {dep.name}@{dep.version}",
+                    err=True,
+                )
+
+    has_findings = bool(results.get("typosquats"))
+    if not allow_known:
+        has_findings = has_findings or bool(results.get("vulnerable"))
+    if has_findings:
+        raise click.exceptions.Exit(1)
+    click.echo("No blocking dependency findings", err=not sarif_out)
+
+
+@cli.command()
 @click.argument("name")
 @click.argument("version")
 def check(name, version):

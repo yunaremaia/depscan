@@ -2,6 +2,12 @@
 import json
 import subprocess
 from pathlib import Path
+from unittest.mock import patch
+
+from click.testing import CliRunner
+
+from depscan.cli import cli
+from depscan.scanner import Dependency, MultiScanner
 
 
 def run_depscan(*args, cwd=None):
@@ -53,3 +59,22 @@ def test_check_valid_name_succeeds(tmp_path):
     """Normal package names must work."""
     result = run_depscan("check", "requests", "2.31.0")
     assert result.returncode == 0, f"exit={result.returncode}\n{result.stderr}"
+
+
+def test_ci_exits_one_for_typosquat():
+    dep = Dependency(name="reqests", version="1.0", ecosystem="pypi")
+    dep.typosquat_target = "requests"
+    results = {"total": 1, "typosquats": [dep], "vulnerable": [], "by_ecosystem": {"pypi": 1}}
+    with patch.object(MultiScanner, "scan_and_check", return_value=results):
+        result = CliRunner().invoke(cli, ["ci", "."])
+    assert result.exit_code == 1
+    assert "TYPOSQUAT" in result.output
+
+
+def test_ci_allow_known_ignores_vulnerabilities():
+    dep = Dependency(name="package", version="1.0", ecosystem="npm")
+    results = {"total": 1, "typosquats": [], "vulnerable": [dep], "by_ecosystem": {"npm": 1}}
+    with patch.object(MultiScanner, "scan_and_check", return_value=results):
+        result = CliRunner().invoke(cli, ["ci", ".", "--allow-known"])
+    assert result.exit_code == 0
+    assert "No blocking dependency findings" in result.output

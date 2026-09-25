@@ -42,6 +42,11 @@ depscan list-deps .
 # Check a specific package
 depscan check requests 2.28.0
 
+# Enforce findings in CI, optionally emitting SARIF
+depscan ci .
+depscan ci . --allow-known
+depscan ci . --sarif > depscan.sarif
+
 # Show supported ecosystems
 depscan info
 ```
