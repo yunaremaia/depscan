@@ -494,6 +494,27 @@ class TestScanDirectory:
         deps = scanner.scan_directory("/nonexistent")
         assert deps == []
 
+    def test_scan_directory_skips_unreadable_file(self, tmp_path):
+        bad = tmp_path / "bad" / "requirements.txt"
+        good = tmp_path / "good" / "requirements.txt"
+        bad.parent.mkdir()
+        good.parent.mkdir()
+        bad.write_text("ignored==1.0")
+        good.write_text("requests==2.28.0")
+        scanner = MultiScanner()
+        scan_file = scanner.scan_file
+
+        def read_or_fail(path):
+            if Path(path) == bad:
+                raise PermissionError("denied")
+            return scan_file(path)
+
+        with patch.object(scanner, "scan_file", side_effect=read_or_fail):
+            with pytest.warns(RuntimeWarning, match="Skipping unreadable"):
+                deps = scanner.scan_directory(str(tmp_path))
+        assert [(dep.name, dep.version) for dep in deps] == [("requests", "2.28.0")]
+
+
     def test_scan_current_dir(self, tmp_path):
         # Create test files
         (tmp_path / "requirements.txt").write_text("flask==2.0.0\n")
