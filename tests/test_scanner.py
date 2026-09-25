@@ -576,6 +576,38 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_go_sum_parsing_deduplicates_module_hash_entries():
+    content = """
+github.com/acme/foo v1.2.3 h1:abc
+github.com/acme/foo v1.2.3/go.mod h1:def
+github.com/acme/bar v0.4.0 h1:ghi
+malformed line
+"""
+    deps = DependencyParser.parse_go_sum(content)
+    assert [(dep.name, dep.version) for dep in deps] == [
+        ("github.com/acme/foo", "1.2.3"),
+        ("github.com/acme/bar", "0.4.0"),
+    ]
+
+
+def test_go_sum_marks_only_unrequired_modules_orphaned(tmp_path):
+    (tmp_path / "go.mod").write_text(
+        "module example\nrequire github.com/acme/foo v1.2.3\n"
+    )
+    (tmp_path / "go.sum").write_text(
+        "github.com/acme/foo v1.2.3 h1:abc\n"
+        "github.com/acme/bar v0.4.0 h1:def\n"
+    )
+
+    deps = MultiScanner().scan_directory(str(tmp_path))
+    go_sum = {
+        dep.name: dep for dep in deps
+        if Path(dep.source_file).name == "go.sum"
+    }
+    assert go_sum["github.com/acme/foo"].is_orphaned is False
+    assert go_sum["github.com/acme/bar"].is_orphaned is True
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 

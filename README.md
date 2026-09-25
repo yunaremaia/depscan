@@ -56,6 +56,7 @@ depscan info
 | PyPI | poetry.lock | Poetry dependencies | ✅ |
 | PyPI | Pipfile.lock | Default & develop dependencies | ✅ |
 | Go | go.mod | Require directives & replace blocks | ✅ |
+| Go | go.sum | Exact transitive versions and orphan detection | ✅ |
 
 ## CLI Reference
 

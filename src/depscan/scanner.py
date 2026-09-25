@@ -31,6 +31,7 @@ LOCK_PATTERNS = [
     "Pipfile.lock",
     "requirements.txt",
     "go.mod",
+    "go.sum",
     "poetry.lock",
     "Gemfile.lock",
     "*.lock",
@@ -60,6 +61,7 @@ class Dependency:
     known_vulnerabilities: list[Vulnerability] = field(default_factory=list)
     is_typosquat: bool = False
     typosquat_target: str = ""
+    is_orphaned: bool = False
 
     @property
     def is_vulnerable(self) -> bool:
@@ -323,6 +325,34 @@ class DependencyParser:
         return deps
 
     @staticmethod
+    def parse_go_sum(content: str) -> list[Dependency]:
+        """Parse exact module versions from go.sum, deduplicating /go.mod hashes."""
+        deps: list[Dependency] = []
+        seen: set[tuple[str, str]] = set()
+        for raw_line in content.splitlines():
+            parts = raw_line.strip().split()
+            if len(parts) != 3:
+                continue
+            name, version, checksum = parts
+            if not checksum.startswith("h1:"):
+                continue
+            if version.endswith("/go.mod"):
+                version = version[:-7]
+            version = version.lstrip("v")
+            key = (name, version)
+            if key in seen:
+                continue
+            seen.add(key)
+            deps.append(Dependency(
+                name=name,
+                version=version,
+                ecosystem="go",
+                source_file="go.sum",
+                is_orphaned=True,
+            ))
+        return deps
+
+    @staticmethod
     def parse_poetry_lock(content: str) -> list[Dependency]:
         """Parse poetry.lock (pyproject.toml companion)."""
         deps = []
@@ -447,7 +477,15 @@ class MultiScanner:
         elif "requirements" in filename:
             return self.parser.parse_requirements_txt(content)
         elif filename == "go.mod":
-            return self.parser.parse_go_mod(content)
+            deps = self.parser.parse_go_mod(content)
+            for dep in deps:
+                dep.source_file = str(path)
+            return deps
+        elif filename == "go.sum":
+            deps = self.parser.parse_go_sum(content)
+            for dep in deps:
+                dep.source_file = str(path)
+            return deps
         elif "poetry.lock" in filename:
             return self.parser.parse_poetry_lock(content)
         elif "gemfile.lock" in filename:
@@ -469,6 +507,16 @@ class MultiScanner:
                     seen.add(resolved)
                     deps.extend(self.scan_file(str(path)))
 
+        go_mod_names = {
+            (Path(dep.source_file).parent, dep.name)
+            for dep in deps
+            if Path(dep.source_file).name == "go.mod"
+        }
+        for dep in deps:
+            if Path(dep.source_file).name == "go.sum":
+                dep.is_orphaned = (
+                    Path(dep.source_file).parent, dep.name
+                ) not in go_mod_names
         return deps
 
     def check_typosquat(self, dep: Dependency) -> bool:
