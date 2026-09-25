@@ -213,22 +213,27 @@ class DependencyParser:
     def parse_requirements_txt(content: str) -> list[Dependency]:
         """Parse requirements.txt."""
         deps = []
+        version_specifiers = ("==", ">=", "<=", "!=", "~=", ">", "<")
         for line in content.splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            if "==" in line:
-                name, _, version = line.partition("==")
+            found = False
+            for spec in version_specifiers:
+                if spec in line:
+                    name, _, version = line.partition(spec)
+                    deps.append(Dependency(
+                        name=name.strip(),
+                        version=version.strip(),
+                        ecosystem="pypi",
+                    ))
+                    found = True
+                    break
+            if not found:
+                # Plain package name without version specifier
                 deps.append(Dependency(
-                    name=name.strip(),
-                    version=version.strip(),
-                    ecosystem="pypi",
-                ))
-            elif ">=" in line:
-                name, _, version = line.partition(">=")
-                deps.append(Dependency(
-                    name=name.strip(),
-                    version=version.strip(),
+                    name=line.strip(),
+                    version="",
                     ecosystem="pypi",
                 ))
         return deps

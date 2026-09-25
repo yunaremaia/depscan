@@ -237,6 +237,28 @@ numpy==1.24.0
         deps = self.parser.parse_requirements_txt(content)
         assert len(deps) == 3
 
+    def test_parse_requirements_txt_all_operators(self):
+        """Test that all version specifiers are parsed, including ~=, <=, >, <, !=."""
+        content = '''
+requests>=2.28.0
+flask~=2.3.0
+numpy<=1.24.0
+pandas>1.5.0
+scipy<1.10.0
+tensorflow!=2.10.0
+click==8.0.0
+no-version-package
+'''
+        deps = self.parser.parse_requirements_txt(content)
+        assert len(deps) == 8
+        by_name = {d.name: d for d in deps}
+        assert by_name["flask"].version == "2.3.0"  # ~=
+        assert by_name["numpy"].version == "1.24.0"  # <=
+        assert by_name["pandas"].version == "1.5.0"  # >
+        assert by_name["scipy"].version == "1.10.0"  # <
+        assert by_name["tensorflow"].version == "2.10.0"  # !=
+        assert by_name["no-version-package"].version == ""  # no specifier
+
     def test_parse_go_mod(self):
         content = '''
 require (
