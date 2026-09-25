@@ -172,6 +172,12 @@ jsonschema.validate(json.load(sys.stdin), json.load(open('schemas/depscan-output
 
 ## Development
 
+### Safe Markdown output
+
+Markdown reports escape HTML-sensitive characters in package names, versions,
+ecosystem names, and vulnerability details by default. Use `--unsafe-output`
+only when the scanned dependency metadata is fully trusted.
+
 ```bash
 # Setup
 git clone https://github.com/yunaremaia/depscan.git

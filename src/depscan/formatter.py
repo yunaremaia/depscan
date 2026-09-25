@@ -1,6 +1,7 @@
 """Output formatters for depscan reports."""
 from __future__ import annotations
 
+import html
 import json
 from datetime import datetime
 from typing import Any
@@ -8,6 +9,14 @@ from typing import Any
 
 class MarkdownFormatter:
     """Format scan results as Markdown reports."""
+
+    def __init__(self, safe_output: bool = True):
+        self.safe_output = safe_output
+
+    def _escape(self, value: Any) -> str:
+        """Escape user-controlled text before embedding it in Markdown."""
+        text = str(value)
+        return html.escape(text, quote=True) if self.safe_output else text
 
     def format_summary(self, results: dict[str, Any]) -> str:
         """Return a Markdown summary of the scan report."""
@@ -33,7 +42,7 @@ class MarkdownFormatter:
             lines.append("| Ecosystem | Count |")
             lines.append("|-----------|-------|")
             for eco, count in sorted(by_eco.items()):
-                lines.append(f"| {eco} | {count} |")
+                lines.append(f"| {self._escape(eco)} | {count} |")
             lines.append("")
 
         if typosquats:
@@ -43,7 +52,26 @@ class MarkdownFormatter:
             lines.append("|---------|---------|-----------|-------------------|")
             for dep in typosquats:
                 target = dep.typosquat_target or "—"
-                lines.append(f"| **{dep.name}** | {dep.version} | {dep.ecosystem} | {target} |")
+                lines.append(
+                    f"| **{self._escape(dep.name)}** | {self._escape(dep.version)} | "
+                    f"{self._escape(dep.ecosystem)} | {self._escape(target)} |"
+                )
+            lines.append("")
+
+        vulnerable = results.get("vulnerable", [])
+        if vulnerable:
+            lines.append("## Vulnerability Details")
+            lines.append("")
+            lines.append("| Package | Version | Vulnerability | Severity | Description |")
+            lines.append("|---------|---------|---------------|----------|-------------|")
+            for dep in vulnerable:
+                for vulnerability in dep.known_vulnerabilities:
+                    lines.append(
+                        f"| **{self._escape(dep.name)}** | {self._escape(dep.version)} | "
+                        f"{self._escape(vulnerability.id)} | "
+                        f"{self._escape(vulnerability.severity)} | "
+                        f"{self._escape(vulnerability.description)} |"
+                    )
             lines.append("")
 
         if not typosquats and total > 0:
@@ -69,7 +97,7 @@ class MarkdownFormatter:
         # We don't have per-dependency details in the current results structure,
         # but we can show the ecosystem breakdown with counts.
         for eco, count in sorted(by_eco.items()):
-            lines.append(f"### {eco}")
+            lines.append(f"### {self._escape(eco)}")
             lines.append("")
             lines.append(f"**{count}** dependencies found.")
             lines.append("")

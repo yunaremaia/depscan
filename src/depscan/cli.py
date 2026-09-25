@@ -46,7 +46,12 @@ def cli():
     help="Output format: text (default), json, markdown, or sarif (SARIF 2.1.0 for GitHub Code Scanning).",
 )
 @click.option("--typosquat/--no-typosquat", default=True, help="Check for typosquats")
-def scan(path, json_out, markdown_out, output_format, typosquat):
+@click.option(
+    "--safe-output/--unsafe-output",
+    default=True,
+    help="Escape HTML in Markdown output (enabled by default)",
+)
+def scan(path, json_out, markdown_out, output_format, typosquat, safe_output):
     """Scan a directory for dependencies."""
     scanner = MultiScanner()
 
@@ -100,7 +105,7 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
         progress.update(task, completed=True)
 
     if output_format == "markdown":
-        formatter = MarkdownFormatter()
+        formatter = MarkdownFormatter(safe_output=safe_output)
         click.echo(formatter.format_full(results))
         if results["typosquats"]:
             sys.exit(1)
