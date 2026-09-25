@@ -483,6 +483,20 @@ class TestMultiScanner:
         assert dep.is_typosquat
         assert dep.typosquat_target == "requests"
 
+    def test_levenshtein_distance_threshold(self):
+        scanner = MultiScanner()
+        assert scanner._levenshtein("requests", "raquests", 2) == 1
+        assert scanner._levenshtein("abcd", "wxyz", 2) > 2
+        assert scanner._levenshtein("a", "aaaa", 2) > 2
+        assert scanner._levenshtein("abcd", "wxyz") == 4
+
+    def test_levenshtein_uses_cache(self):
+        scanner = MultiScanner()
+        scanner._levenshtein.cache_clear()
+        scanner._levenshtein("raquests", "requests", 2)
+        scanner._levenshtein("raquests", "requests", 2)
+        assert scanner._levenshtein.cache_info().hits == 1
+
     def test_no_typosquat_for_known_package(self):
         dep = Dependency(name="requests", version="2.28.0", ecosystem="pypi")
         assert self.scanner.check_typosquat(dep) is False

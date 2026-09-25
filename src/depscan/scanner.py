@@ -1,6 +1,7 @@
 """Multi-ecosystem dependency scanner."""
 from __future__ import annotations
 
+from functools import lru_cache
 import json
 import re
 import subprocess
@@ -478,16 +479,19 @@ class MultiScanner:
             if name_lower == target:
                 return False  # Known good package
             # Simple similarity check
-            if self._levenshtein(name_lower, target) <= 2:
+            if self._levenshtein(name_lower, target, max_distance=2) <= 2:
                 dep.is_typosquat = True
                 dep.typosquat_target = target
                 return True
         return False
 
-    def _levenshtein(self, s1: str, s2: str) -> int:
+    @lru_cache(maxsize=1024)
+    def _levenshtein(self, s1: str, s2: str, max_distance: int | None = None) -> int:
         """Calculate Levenshtein edit distance."""
+        if max_distance is not None and abs(len(s1) - len(s2)) > max_distance:
+            return max_distance + 1
         if len(s1) < len(s2):
-            return self._levenshtein(s2, s1)
+            return self._levenshtein(s2, s1, max_distance=max_distance)
         if len(s2) == 0:
             return len(s1)
         prev_row = range(len(s2) + 1)
@@ -498,6 +502,8 @@ class MultiScanner:
                 deletions = curr_row[j] + 1
                 substitutions = prev_row[j] + (c1 != c2)
                 curr_row.append(min(insertions, deletions, substitutions))
+            if max_distance is not None and min(curr_row) > max_distance:
+                return max_distance + 1
             prev_row = curr_row
         return prev_row[-1]
 
