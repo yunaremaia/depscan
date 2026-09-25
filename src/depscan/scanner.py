@@ -4,6 +4,10 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -27,6 +31,7 @@ def validate_package_name(name: str) -> None:
 
 LOCK_PATTERNS = [
     "Cargo.lock",
+    "Cargo.toml",
     "package-lock.json",
     "Pipfile.lock",
     "requirements.txt",
@@ -99,6 +104,36 @@ class DependencyParser:
                 version=current.get("version", ""),
                 ecosystem="cargo",
             ))
+        return deps
+
+    @staticmethod
+    def parse_cargo_toml(content: str) -> list[Dependency]:
+        """Parse dependency declarations from Cargo.toml."""
+        try:
+            data = tomllib.loads(content)
+        except (tomllib.TOMLDecodeError, TypeError):
+            return []
+
+        deps: list[Dependency] = []
+        for section in ("dependencies", "dev-dependencies", "build-dependencies"):
+            section_data = data.get(section)
+            if not isinstance(section_data, dict):
+                continue
+            for name, spec in section_data.items():
+                version = ""
+                if isinstance(spec, str):
+                    version = spec
+                elif isinstance(spec, dict):
+                    if spec.get("workspace") is True:
+                        version = "workspace"
+                    elif isinstance(spec.get("version"), str):
+                        version = spec["version"]
+                if version:
+                    deps.append(Dependency(
+                        name=name,
+                        version=version,
+                        ecosystem="cargo",
+                    ))
         return deps
 
     @staticmethod
@@ -440,6 +475,8 @@ class MultiScanner:
         filename = path.name.lower()
         if "cargo.lock" in filename:
             return self.parser.parse_cargo_lock(content)
+        elif filename == "cargo.toml":
+            return self.parser.parse_cargo_toml(content)
         elif "package-lock" in filename:
             return self.parser.parse_package_lock(content)
         elif "pipfile.lock" in filename:

@@ -576,6 +576,28 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_parse_cargo_toml_all_dependency_sections():
+    content = '''
+[dependencies]
+serde = "1.0"
+tokio = { version = "1.37", features = ["full"] }
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[build-dependencies]
+cc = { workspace = true }
+'''
+    deps = DependencyParser.parse_cargo_toml(content)
+    parsed = {(dep.name, dep.version, dep.ecosystem) for dep in deps}
+    assert parsed == {
+        ("serde", "1.0", "cargo"),
+        ("tokio", "1.37", "cargo"),
+        ("pretty_assertions", "1.4", "cargo"),
+        ("cc", "workspace", "cargo"),
+    }
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
