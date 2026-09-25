@@ -576,6 +576,20 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_parse_package_json_mixed_dependencies():
+    content = '''{
+        "dependencies": {"react": "^18.2.0", "lodash": "~4.17.21"},
+        "devDependencies": {"pytest-js": "^1.0.0"}
+    }'''
+    deps = DependencyParser.parse_package_json(content)
+    parsed = {(dep.name, dep.version, dep.ecosystem) for dep in deps}
+    assert parsed == {
+        ("react", "^18.2.0", "npm"),
+        ("lodash", "~4.17.21", "npm"),
+        ("pytest-js", "^1.0.0", "npm"),
+    }
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 

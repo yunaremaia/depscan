@@ -28,6 +28,7 @@ def validate_package_name(name: str) -> None:
 LOCK_PATTERNS = [
     "Cargo.lock",
     "package-lock.json",
+    "package.json",
     "Pipfile.lock",
     "requirements.txt",
     "go.mod",
@@ -174,6 +175,38 @@ class DependencyParser:
             if isinstance(raw_dependencies, dict):
                 _collect_legacy_deps(raw_dependencies)
 
+        return deps
+
+    @staticmethod
+    def parse_package_json(content: str) -> list[Dependency]:
+        """Parse top-level npm dependencies from package.json."""
+        deps: list[Dependency] = []
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            return deps
+        if not isinstance(data, dict):
+            return deps
+
+        seen: set[str] = set()
+        for section in ("dependencies", "devDependencies"):
+            section_data = data.get(section)
+            if not isinstance(section_data, dict):
+                continue
+            for name, version in section_data.items():
+                if (
+                    isinstance(name, str)
+                    and isinstance(version, str)
+                    and name
+                    and version
+                    and name not in seen
+                ):
+                    seen.add(name)
+                    deps.append(Dependency(
+                        name=name,
+                        version=version,
+                        ecosystem="npm",
+                    ))
         return deps
 
     @staticmethod
@@ -442,6 +475,8 @@ class MultiScanner:
             return self.parser.parse_cargo_lock(content)
         elif "package-lock" in filename:
             return self.parser.parse_package_lock(content)
+        elif filename == "package.json":
+            return self.parser.parse_package_json(content)
         elif "pipfile.lock" in filename:
             return self.parser.parse_pipfile_lock(content)
         elif "requirements" in filename:
