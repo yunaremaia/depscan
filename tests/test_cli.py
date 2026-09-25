@@ -1,6 +1,12 @@
 """Tests for depscan CLI exit codes and output formats."""
 import json
 import subprocess
+from unittest.mock import patch
+
+from click.testing import CliRunner
+
+from depscan.cli import cli
+from depscan.scanner import Dependency, MultiScanner
 from pathlib import Path
 
 
@@ -53,3 +59,22 @@ def test_check_valid_name_succeeds(tmp_path):
     """Normal package names must work."""
     result = run_depscan("check", "requests", "2.31.0")
     assert result.returncode == 0, f"exit={result.returncode}\n{result.stderr}"
+
+
+def test_list_deps_json_includes_source_file():
+    dependency = Dependency(
+        name="requests",
+        version="2.31.0",
+        ecosystem="pypi",
+        source_file="requirements.txt",
+    )
+    with patch.object(MultiScanner, "scan_directory", return_value=[dependency]):
+        result = CliRunner().invoke(cli, ["list-deps", "--json-output", "."])
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == [{
+        "name": "requests",
+        "version": "2.31.0",
+        "ecosystem": "pypi",
+        "source_file": "requirements.txt",
+    }]

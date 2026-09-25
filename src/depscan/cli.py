@@ -152,7 +152,12 @@ def list_deps(path, json_out):
 
     if json_out:
         output = [
-            {"name": d.name, "version": d.version, "ecosystem": d.ecosystem}
+            {
+                "name": d.name,
+                "version": d.version,
+                "ecosystem": d.ecosystem,
+                "source_file": d.source_file,
+            }
             for d in deps
         ]
         click.echo(json.dumps(output, indent=2))
