@@ -39,6 +39,10 @@ depscan scan . --json-output > deps.json
 # List all dependencies
 depscan list-deps .
 
+# Record and verify known-good lockfile checksums
+depscan verify . --write
+depscan verify .
+
 # Check a specific package
 depscan check requests 2.28.0
 

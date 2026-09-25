@@ -175,6 +175,43 @@ def list_deps(path, json_out):
 
 
 @cli.command()
+@click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
+@click.option("--write", is_flag=True, help="Create or replace the known-good manifest")
+def verify(path, write):
+    """Create or verify SHA256 lockfile integrity data."""
+    from depscan.integrity import verify_manifest, write_manifest
+
+    root = Path(path).resolve()
+    if write:
+        from depscan.scanner import LOCK_PATTERNS
+
+        files = []
+        seen = set()
+        for pattern in LOCK_PATTERNS:
+            for lockfile in root.rglob(pattern):
+                resolved = lockfile.resolve()
+                if lockfile.is_file() and resolved not in seen:
+                    seen.add(resolved)
+                    files.append(lockfile)
+        target = write_manifest(root, files)
+        click.echo(f"Wrote integrity manifest: {target}")
+        return
+    try:
+        violations = verify_manifest(root)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    if violations:
+        for violation in violations:
+            click.echo(
+                f"INTEGRITY FAILURE: {violation.file} "
+                f"(expected {violation.expected}, got {violation.actual or 'missing'})",
+                err=True,
+            )
+        raise click.exceptions.Exit(2)
+    click.echo("Lockfile integrity verified")
+
+
+@cli.command()
 @click.argument("name")
 @click.argument("version")
 def check(name, version):
