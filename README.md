@@ -26,6 +26,15 @@ pip install -e .
 
 ## Quick Start
 
+Create and validate a starter configuration:
+
+```bash
+depscan init
+depscan init --profile strict
+depscan init --profile ci --force
+depscan validate .depscan.yml
+```
+
 ```bash
 # Scan current directory
 depscan scan .

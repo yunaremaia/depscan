@@ -220,3 +220,42 @@ def info():
         "• JSON output for automation",
         title="depscan — Info"
     ))
+
+
+@cli.command(name="init")
+@click.argument("path", default=".depscan.yml", type=click.Path())
+@click.option(
+    "--profile",
+    type=click.Choice(["strict", "relaxed", "ci"]),
+    default="relaxed",
+    show_default=True,
+)
+@click.option("--force", is_flag=True, help="Overwrite an existing configuration")
+def init_config(path, profile, force):
+    """Create a starter .depscan.yml configuration."""
+    from depscan.config import render_profile
+
+    config_path = Path(path)
+    if config_path.exists() and not force:
+        raise click.ClickException(
+            f"{config_path} already exists; use --force to overwrite it"
+        )
+    config_path.write_text(render_profile(profile), encoding="utf-8")
+    click.echo(f"Created {config_path} with the {profile} profile")
+
+
+@cli.command()
+@click.argument(
+    "path",
+    default=".depscan.yml",
+    type=click.Path(exists=True, dir_okay=False),
+)
+def validate(path):
+    """Validate a depscan configuration file."""
+    from depscan.config import load_config
+
+    try:
+        load_config(path)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"{path} is valid")

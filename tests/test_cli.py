@@ -3,6 +3,10 @@ import json
 import subprocess
 from pathlib import Path
 
+from click.testing import CliRunner
+
+from depscan.cli import cli
+
 
 def run_depscan(*args, cwd=None):
     return subprocess.run(
@@ -53,3 +57,31 @@ def test_check_valid_name_succeeds(tmp_path):
     """Normal package names must work."""
     result = run_depscan("check", "requests", "2.31.0")
     assert result.returncode == 0, f"exit={result.returncode}\n{result.stderr}"
+
+
+def test_init_creates_valid_relaxed_config(tmp_path):
+    config_path = tmp_path / ".depscan.yml"
+    runner = CliRunner()
+
+    created = runner.invoke(cli, ["init", str(config_path)])
+    validated = runner.invoke(cli, ["validate", str(config_path)])
+
+    assert created.exit_code == 0
+    assert validated.exit_code == 0
+    assert "output_format: text" in config_path.read_text()
+
+
+def test_init_profiles_and_force(tmp_path):
+    config_path = tmp_path / ".depscan.yml"
+    runner = CliRunner()
+
+    first = runner.invoke(cli, ["init", str(config_path), "--profile", "strict"])
+    duplicate = runner.invoke(cli, ["init", str(config_path), "--profile", "ci"])
+    forced = runner.invoke(
+        cli, ["init", str(config_path), "--profile", "ci", "--force"]
+    )
+
+    assert first.exit_code == 0
+    assert duplicate.exit_code != 0
+    assert forced.exit_code == 0
+    assert "output_format: sarif" in config_path.read_text()
