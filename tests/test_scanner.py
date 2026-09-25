@@ -576,6 +576,37 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_go_mod_skips_single_line_excluded_version():
+    content = """
+require (
+    github.com/acme/unsafe v1.2.0
+    github.com/acme/safe v2.0.0
+)
+exclude github.com/acme/unsafe v1.2.0 // known bad release
+"""
+    deps = DependencyParser.parse_go_mod(content)
+    assert [(dep.name, dep.version) for dep in deps] == [
+        ("github.com/acme/safe", "2.0.0")
+    ]
+
+
+def test_go_mod_skips_block_exclusions_only_when_version_matches():
+    content = """
+require (
+    github.com/acme/foo v1.2.0
+    github.com/acme/bar v3.0.0
+)
+exclude (
+    github.com/acme/foo v1.1.0
+    github.com/acme/bar v3.0.0
+)
+"""
+    deps = DependencyParser.parse_go_mod(content)
+    assert [(dep.name, dep.version) for dep in deps] == [
+        ("github.com/acme/foo", "1.2.0")
+    ]
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
