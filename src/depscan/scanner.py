@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import fnmatch
+import os
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -35,6 +37,12 @@ LOCK_PATTERNS = [
     "Gemfile.lock",
     "*.lock",
 ]
+
+DEFAULT_SKIP_DIRS = {
+    "node_modules", ".git", "__pycache__", "venv", ".venv", "env",
+    ".env", "dist", "build", "target", "vendor", ".idea", ".vscode",
+    ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+}
 
 
 @dataclass
@@ -455,19 +463,35 @@ class MultiScanner:
 
         return []
 
-    def scan_directory(self, root: str = ".") -> list[Dependency]:
+    def scan_directory(
+        self,
+        root: str = ".",
+        excludes: set[str] | None = None,
+        include_hidden: bool = False,
+    ) -> list[Dependency]:
         """Scan all dependency files in a directory."""
         deps = []
         seen = set()
+        skip_dirs = set(DEFAULT_SKIP_DIRS)
+        if include_hidden:
+            skip_dirs = {name for name in skip_dirs if not name.startswith(".")}
+        skip_dirs.update(excludes or ())
 
-        for pattern in LOCK_PATTERNS:
-            for path in Path(root).rglob(pattern):
-                if path.is_file():
-                    resolved = path.resolve()
-                    if resolved in seen:
-                        continue
-                    seen.add(resolved)
-                    deps.extend(self.scan_file(str(path)))
+        for current_root, dirnames, filenames in os.walk(root):
+            dirnames[:] = [
+                name for name in dirnames
+                if not any(fnmatch.fnmatch(name, pattern) for pattern in skip_dirs)
+                and (include_hidden or not name.startswith("."))
+            ]
+            for filename in filenames:
+                if not any(fnmatch.fnmatch(filename, pattern) for pattern in LOCK_PATTERNS):
+                    continue
+                path = Path(current_root) / filename
+                resolved = path.resolve()
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                deps.extend(self.scan_file(str(path)))
 
         return deps
 
@@ -501,9 +525,18 @@ class MultiScanner:
             prev_row = curr_row
         return prev_row[-1]
 
-    def scan_and_check(self, root: str = ".") -> dict:
+    def scan_and_check(
+        self,
+        root: str = ".",
+        excludes: set[str] | None = None,
+        include_hidden: bool = False,
+    ) -> dict:
         """Full scan with typosquat detection."""
-        deps = self.scan_directory(root)
+        deps = self.scan_directory(
+            root,
+            excludes=excludes,
+            include_hidden=include_hidden,
+        )
         results = {
             "total": len(deps),
             "typosquats": [],

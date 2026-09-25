@@ -33,6 +33,10 @@ depscan scan .
 # Scan a specific path
 depscan scan /path/to/project
 
+# Include hidden directories or add custom directory exclusions
+depscan scan . --include-hidden
+depscan scan . --exclude generated --exclude "fixtures-*"
+
 # Output as JSON
 depscan scan . --json-output > deps.json
 
@@ -47,6 +51,10 @@ depscan info
 ```
 
 ## Supported Formats
+
+By default, scans skip dependency caches, virtual environments, VCS metadata,
+and build output such as `node_modules`, `.venv`, `.git`, `target`,
+`vendor`, `dist`, and `build`.
 
 | Ecosystem | File | Supported Versions / Details | Status |
 |-----------|------|------------------------------|--------|

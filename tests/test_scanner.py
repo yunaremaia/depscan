@@ -576,6 +576,39 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_scan_directory_skips_dependency_directories(tmp_path):
+    root_req = tmp_path / "requirements.txt"
+    root_req.write_text("requests==2.31.0\n")
+    vendored = tmp_path / "node_modules" / "nested"
+    vendored.mkdir(parents=True)
+    (vendored / "requirements.txt").write_text("evil==1.0\n")
+
+    deps = MultiScanner().scan_directory(str(tmp_path))
+
+    assert [(dep.name, dep.version) for dep in deps] == [("requests", "2.31.0")]
+
+
+def test_scan_directory_honors_custom_excludes(tmp_path):
+    generated = tmp_path / "generated"
+    generated.mkdir()
+    (generated / "requirements.txt").write_text("generated-package==1.0\n")
+    (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
+
+    deps = MultiScanner().scan_directory(str(tmp_path), excludes={"generated"})
+
+    assert [dep.name for dep in deps] == ["requests"]
+
+
+def test_scan_directory_can_include_hidden_directories(tmp_path):
+    hidden = tmp_path / ".fixtures"
+    hidden.mkdir()
+    (hidden / "requirements.txt").write_text("hidden-package==1.0\n")
+
+    assert MultiScanner().scan_directory(str(tmp_path)) == []
+    deps = MultiScanner().scan_directory(str(tmp_path), include_hidden=True)
+    assert [dep.name for dep in deps] == ["hidden-package"]
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
