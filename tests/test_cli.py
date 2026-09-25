@@ -3,6 +3,11 @@ import json
 import subprocess
 from pathlib import Path
 
+from click.testing import CliRunner
+
+from depscan import __version__
+from depscan.cli import cli
+
 
 def run_depscan(*args, cwd=None):
     return subprocess.run(
@@ -53,3 +58,14 @@ def test_check_valid_name_succeeds(tmp_path):
     """Normal package names must work."""
     result = run_depscan("check", "requests", "2.31.0")
     assert result.returncode == 0, f"exit={result.returncode}\n{result.stderr}"
+
+
+def test_info_shows_version_and_output_formats():
+    result = CliRunner().invoke(cli, ["info"])
+
+    assert result.exit_code == 0
+    assert __version__ in result.output
+    assert "terminal (default)" in result.output
+    assert "JSON" in result.output
+    assert "Markdown" in result.output
+    assert "SARIF" in result.output

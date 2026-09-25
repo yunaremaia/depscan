@@ -208,12 +208,20 @@ def check(name, version):
 @cli.command()
 def info():
     """Show supported ecosystems and formats."""
+    from depscan import __version__
+
     console.print(Panel(
+        f"[bold]Version:[/bold] {__version__}\n\n"
         "[bold]Supported Ecosystems:[/bold]\n"
         "• cargo (Cargo.lock)\n"
         "• npm (package-lock.json)\n"
         "• pypi (requirements.txt, poetry.lock, Pipfile.lock)\n"
         "• go (go.mod)\n\n"
+        "[bold]Output Formats:[/bold]\n"
+        "• terminal (default)\n"
+        "• JSON (--format json)\n"
+        "• Markdown (--format markdown)\n"
+        "• SARIF (--format sarif)\n\n"
         "[bold]Features:[/bold]\n"
         "• Multi-ecosystem scanning\n"
         "• Typosquat detection\n"
