@@ -39,6 +39,10 @@ depscan scan . --json-output > deps.json
 # List all dependencies
 depscan list-deps .
 
+# Generate standard SBOM documents
+depscan sbom . --format cyclonedx --output bom.cdx.json
+depscan sbom . --format spdx --output bom.spdx.json
+
 # Check a specific package
 depscan check requests 2.28.0
 

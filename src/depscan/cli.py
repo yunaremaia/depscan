@@ -175,6 +175,34 @@ def list_deps(path, json_out):
 
 
 @cli.command()
+@click.argument("path", default=".", type=click.Path(exists=True))
+@click.option(
+    "--format",
+    "sbom_format",
+    type=click.Choice(["cyclonedx", "spdx"]),
+    default="cyclonedx",
+    show_default=True,
+)
+@click.option("--output", type=click.Path(dir_okay=False), help="Write SBOM to a file")
+def sbom(path, sbom_format, output):
+    """Generate a CycloneDX or SPDX software bill of materials."""
+    from depscan.sbom import dumps, to_cyclonedx, to_spdx
+
+    dependencies = MultiScanner().scan_directory(path)
+    document = (
+        to_cyclonedx(dependencies)
+        if sbom_format == "cyclonedx"
+        else to_spdx(dependencies)
+    )
+    rendered = dumps(document)
+    if output:
+        Path(output).write_text(rendered + "\n", encoding="utf-8")
+        click.echo(f"Wrote {sbom_format} SBOM to {output}")
+    else:
+        click.echo(rendered)
+
+
+@cli.command()
 @click.argument("name")
 @click.argument("version")
 def check(name, version):
