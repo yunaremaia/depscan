@@ -33,6 +33,10 @@ depscan scan .
 # Scan a specific path
 depscan scan /path/to/project
 
+# Ignore files are respected by default
+depscan scan . --no-ignore
+depscan scan . --exclude "fixtures/**"
+
 # Output as JSON
 depscan scan . --json-output > deps.json
 

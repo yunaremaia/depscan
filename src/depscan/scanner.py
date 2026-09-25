@@ -455,14 +455,28 @@ class MultiScanner:
 
         return []
 
-    def scan_directory(self, root: str = ".") -> list[Dependency]:
+    def scan_directory(
+        self,
+        root: str = ".",
+        respect_ignores: bool = True,
+        exclude_patterns: list[str] | None = None,
+    ) -> list[Dependency]:
         """Scan all dependency files in a directory."""
+        from depscan.ignore import is_ignored, load_ignore_patterns
+
         deps = []
         seen = set()
+        root_path = Path(root).resolve()
+        ignore_patterns = (
+            load_ignore_patterns(root_path) if respect_ignores else []
+        )
+        ignore_patterns.extend(exclude_patterns or [])
 
         for pattern in LOCK_PATTERNS:
-            for path in Path(root).rglob(pattern):
+            for path in root_path.rglob(pattern):
                 if path.is_file():
+                    if is_ignored(path, root_path, ignore_patterns):
+                        continue
                     resolved = path.resolve()
                     if resolved in seen:
                         continue
@@ -501,9 +515,18 @@ class MultiScanner:
             prev_row = curr_row
         return prev_row[-1]
 
-    def scan_and_check(self, root: str = ".") -> dict:
+    def scan_and_check(
+        self,
+        root: str = ".",
+        respect_ignores: bool = True,
+        exclude_patterns: list[str] | None = None,
+    ) -> dict:
         """Full scan with typosquat detection."""
-        deps = self.scan_directory(root)
+        deps = self.scan_directory(
+            root,
+            respect_ignores=respect_ignores,
+            exclude_patterns=exclude_patterns,
+        )
         results = {
             "total": len(deps),
             "typosquats": [],
