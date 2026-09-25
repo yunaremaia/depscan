@@ -20,6 +20,19 @@ import re as _re
 console = Console(safe_box=True)
 
 
+def _should_fail(results: dict, fail_on: str | None) -> bool:
+    """Return whether the selected finding policy should fail the command."""
+    if fail_on is None:
+        return False
+    has_typosquats = bool(results.get("typosquats"))
+    has_vulnerabilities = bool(results.get("vulnerable"))
+    if fail_on == "typosquat":
+        return has_typosquats
+    if fail_on == "vulnerable":
+        return has_vulnerabilities
+    return has_typosquats or has_vulnerabilities
+
+
 def _truncate(text: str, length: int = 40) -> str:
     """Truncate text with ellipsis."""
     if len(text) <= length:
@@ -46,7 +59,12 @@ def cli():
     help="Output format: text (default), json, markdown, or sarif (SARIF 2.1.0 for GitHub Code Scanning).",
 )
 @click.option("--typosquat/--no-typosquat", default=True, help="Check for typosquats")
-def scan(path, json_out, markdown_out, output_format, typosquat):
+@click.option(
+    "--fail-on",
+    type=click.Choice(["typosquat", "vulnerable", "any"]),
+    help="Exit 1 when selected findings are present",
+)
+def scan(path, json_out, markdown_out, output_format, typosquat, fail_on):
     """Scan a directory for dependencies."""
     scanner = MultiScanner()
 
@@ -63,7 +81,7 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
         findings = findings_from_scan_results(results)
         sarif_doc = to_sarif(findings, repo_root=path)
         click.echo(json.dumps(sarif_doc, indent=2))
-        if results.get("typosquats") or results.get("vulnerable"):
+        if _should_fail(results, fail_on):
             sys.exit(1)
         return
 
@@ -86,7 +104,7 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
             "by_ecosystem": results["by_ecosystem"],
         }
         print(json.dumps(output, indent=2))
-        if results["typosquats"]:
+        if _should_fail(results, fail_on):
             sys.exit(1)
         return
 
@@ -102,7 +120,7 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
     if output_format == "markdown":
         formatter = MarkdownFormatter()
         click.echo(formatter.format_full(results))
-        if results["typosquats"]:
+        if _should_fail(results, fail_on):
             sys.exit(1)
         return
 
@@ -140,6 +158,9 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
             eco_table.add_row(eco, str(count))
 
         console.print(eco_table)
+
+    if _should_fail(results, fail_on):
+        raise click.exceptions.Exit(1)
 
 
 @cli.command()

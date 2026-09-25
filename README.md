@@ -36,6 +36,11 @@ depscan scan /path/to/project
 # Output as JSON
 depscan scan . --json-output > deps.json
 
+# Fail CI for selected finding types
+depscan scan . --fail-on typosquat
+depscan scan . --fail-on vulnerable
+depscan scan . --fail-on any
+
 # List all dependencies
 depscan list-deps .
 

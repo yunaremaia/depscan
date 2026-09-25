@@ -3,6 +3,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from depscan.cli import _should_fail
+
 
 def run_depscan(*args, cwd=None):
     return subprocess.run(
@@ -53,3 +55,15 @@ def test_check_valid_name_succeeds(tmp_path):
     """Normal package names must work."""
     result = run_depscan("check", "requests", "2.31.0")
     assert result.returncode == 0, f"exit={result.returncode}\n{result.stderr}"
+
+
+def test_fail_on_policies():
+    typo = {"typosquats": [object()], "vulnerable": []}
+    vulnerable = {"typosquats": [], "vulnerable": [object()]}
+    both = {"typosquats": [object()], "vulnerable": [object()]}
+
+    assert _should_fail(typo, None) is False
+    assert _should_fail(typo, "typosquat") is True
+    assert _should_fail(typo, "vulnerable") is False
+    assert _should_fail(vulnerable, "vulnerable") is True
+    assert _should_fail(both, "any") is True
