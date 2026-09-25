@@ -429,13 +429,6 @@ class MultiScanner:
         content = Path(filepath).read_text(encoding="utf-8", errors="replace")
         path = Path(filepath)
 
-        suffix_map = {
-            ".toml": ("cargo", self.parser.parse_cargo_lock),
-            ".json": ("npm", self.parser.parse_package_lock),
-            ".txt": ("pypi", self.parser.parse_requirements_txt),
-            ".mod": ("go", self.parser.parse_go_mod),
-        }
-
         # Try by filename
         filename = path.name.lower()
         if "cargo.lock" in filename:
