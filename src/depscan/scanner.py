@@ -507,7 +507,6 @@ class MultiScanner:
         results = {
             "total": len(deps),
             "typosquats": [],
-            "vulnerable": [],
             "by_ecosystem": {},
         }
 
