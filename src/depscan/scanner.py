@@ -4,6 +4,10 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +36,7 @@ LOCK_PATTERNS = [
     "requirements.txt",
     "go.mod",
     "poetry.lock",
+    "pyproject.toml",
     "Gemfile.lock",
     "*.lock",
 ]
@@ -99,6 +104,58 @@ class DependencyParser:
                 version=current.get("version", ""),
                 ecosystem="cargo",
             ))
+        return deps
+
+    @staticmethod
+    def parse_pyproject_toml(content: str) -> list[Dependency]:
+        """Parse PEP 621 and Poetry dependency declarations."""
+        try:
+            data = tomllib.loads(content)
+        except (tomllib.TOMLDecodeError, TypeError):
+            return []
+
+        deps: list[Dependency] = []
+        seen: set[tuple[str, str]] = set()
+
+        def add_pep508(requirement: str) -> None:
+            requirement = requirement.split(";", 1)[0].strip()
+            match = re.match(r"^([A-Za-z0-9_.-]+)(?:\[[^\]]+\])?\s*(.*)$", requirement)
+            if not match:
+                return
+            name, version = match.groups()
+            key = (name, version)
+            if key not in seen:
+                seen.add(key)
+                deps.append(Dependency(name=name, version=version, ecosystem="pypi"))
+
+        project = data.get("project", {})
+        if isinstance(project, dict):
+            dependencies = project.get("dependencies", [])
+            if isinstance(dependencies, list):
+                for requirement in dependencies:
+                    if isinstance(requirement, str):
+                        add_pep508(requirement)
+            optional = project.get("optional-dependencies", {})
+            if isinstance(optional, dict):
+                for group in optional.values():
+                    if isinstance(group, list):
+                        for requirement in group:
+                            if isinstance(requirement, str):
+                                add_pep508(requirement)
+
+        tool = data.get("tool", {})
+        poetry = tool.get("poetry", {}) if isinstance(tool, dict) else {}
+        poetry_deps = poetry.get("dependencies", {}) if isinstance(poetry, dict) else {}
+        if isinstance(poetry_deps, dict):
+            for name, spec in poetry_deps.items():
+                if name.lower() == "python":
+                    continue
+                version = spec if isinstance(spec, str) else spec.get("version", "") if isinstance(spec, dict) else ""
+                if isinstance(version, str) and version:
+                    key = (name, version)
+                    if key not in seen:
+                        seen.add(key)
+                        deps.append(Dependency(name=name, version=version, ecosystem="pypi"))
         return deps
 
     @staticmethod
@@ -450,6 +507,8 @@ class MultiScanner:
             return self.parser.parse_go_mod(content)
         elif "poetry.lock" in filename:
             return self.parser.parse_poetry_lock(content)
+        elif filename == "pyproject.toml":
+            return self.parser.parse_pyproject_toml(content)
         elif "gemfile.lock" in filename:
             return self.parser.parse_gemfile_lock(content)
 

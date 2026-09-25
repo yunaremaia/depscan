@@ -576,6 +576,28 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_parse_pyproject_toml_pep621_and_poetry():
+    content = '''
+[project]
+dependencies = ["requests>=2.31", "httpx[http2]~=0.27; python_version >= '3.10'"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pendulum = { version = "^3.0" }
+'''
+    deps = DependencyParser.parse_pyproject_toml(content)
+    parsed = {(dep.name, dep.version, dep.ecosystem) for dep in deps}
+    assert parsed == {
+        ("requests", ">=2.31", "pypi"),
+        ("httpx", "~=0.27", "pypi"),
+        ("pytest", ">=7", "pypi"),
+        ("pendulum", "^3.0", "pypi"),
+    }
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
