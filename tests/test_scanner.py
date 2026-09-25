@@ -576,6 +576,28 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_parallel_scan_matches_sequential_results(tmp_path):
+    first = tmp_path / "requirements.txt"
+    first.write_text("requests==2.31.0\n")
+    nested = tmp_path / "service"
+    nested.mkdir()
+    (nested / "requirements.txt").write_text("flask==3.0.0\n")
+
+    scanner = MultiScanner()
+    sequential = scanner.scan_directory(str(tmp_path))
+    parallel = scanner.scan_directory_parallel(str(tmp_path), max_workers=2)
+
+    assert [(dep.name, dep.version) for dep in parallel] == [
+        (dep.name, dep.version) for dep in sequential
+    ]
+
+
+def test_scan_and_check_can_disable_parallel_mode(tmp_path):
+    (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
+    results = MultiScanner().scan_and_check(str(tmp_path), parallel=False)
+    assert results["total"] == 1
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 

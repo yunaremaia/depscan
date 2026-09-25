@@ -33,6 +33,10 @@ depscan scan .
 # Scan a specific path
 depscan scan /path/to/project
 
+# Tune concurrent parsing for monorepos
+depscan scan . --parallel --max-workers 8
+depscan scan . --no-parallel
+
 # Output as JSON
 depscan scan . --json-output > deps.json
 

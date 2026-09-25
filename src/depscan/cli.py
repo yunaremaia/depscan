@@ -46,7 +46,13 @@ def cli():
     help="Output format: text (default), json, markdown, or sarif (SARIF 2.1.0 for GitHub Code Scanning).",
 )
 @click.option("--typosquat/--no-typosquat", default=True, help="Check for typosquats")
-def scan(path, json_out, markdown_out, output_format, typosquat):
+@click.option(
+    "--parallel/--no-parallel",
+    default=True,
+    help="Parse dependency files concurrently",
+)
+@click.option("--max-workers", type=click.IntRange(min=1), default=4, show_default=True)
+def scan(path, json_out, markdown_out, output_format, typosquat, parallel, max_workers):
     """Scan a directory for dependencies."""
     scanner = MultiScanner()
 
@@ -59,7 +65,9 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
     # SARIF output: scan then emit SARIF 2.1.0 to stdout — no progress spinner
     # so the output can be piped directly to a file.
     if output_format == "sarif":
-        results = scanner.scan_and_check(path)
+        results = scanner.scan_and_check(
+            path, parallel=parallel, max_workers=max_workers
+        )
         findings = findings_from_scan_results(results)
         sarif_doc = to_sarif(findings, repo_root=path)
         click.echo(json.dumps(sarif_doc, indent=2))
@@ -72,7 +80,9 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
         try:
-            results = scanner.scan_and_check(path)
+            results = scanner.scan_and_check(
+                path, parallel=parallel, max_workers=max_workers
+            )
         finally:
             sys.stdout = old_stdout
 
@@ -96,7 +106,9 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
         console=console,
     ) as progress:
         task = progress.add_task(f"Scanning {path}...", total=None)
-        results = scanner.scan_and_check(path)
+        results = scanner.scan_and_check(
+            path, parallel=parallel, max_workers=max_workers
+        )
         progress.update(task, completed=True)
 
     if output_format == "markdown":

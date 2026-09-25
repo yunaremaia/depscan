@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -455,11 +456,10 @@ class MultiScanner:
 
         return []
 
-    def scan_directory(self, root: str = ".") -> list[Dependency]:
-        """Scan all dependency files in a directory."""
-        deps = []
+    def _find_dependency_files(self, root: str) -> list[Path]:
+        """Return unique dependency files below root."""
+        paths: list[Path] = []
         seen = set()
-
         for pattern in LOCK_PATTERNS:
             for path in Path(root).rglob(pattern):
                 if path.is_file():
@@ -467,7 +467,26 @@ class MultiScanner:
                     if resolved in seen:
                         continue
                     seen.add(resolved)
-                    deps.extend(self.scan_file(str(path)))
+                    paths.append(path)
+        return paths
+
+    def scan_directory(self, root: str = ".") -> list[Dependency]:
+        """Scan all dependency files in a directory."""
+        deps = []
+        for path in self._find_dependency_files(root):
+            deps.extend(self.scan_file(str(path)))
+        return deps
+
+    def scan_directory_parallel(
+        self,
+        root: str = ".",
+        max_workers: int = 4,
+    ) -> list[Dependency]:
+        """Scan dependency files concurrently while preserving file order."""
+        paths = self._find_dependency_files(root)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            parsed = executor.map(lambda path: self.scan_file(str(path)), paths)
+            return [dep for file_deps in parsed for dep in file_deps]
 
         return deps
 
@@ -501,9 +520,17 @@ class MultiScanner:
             prev_row = curr_row
         return prev_row[-1]
 
-    def scan_and_check(self, root: str = ".") -> dict:
+    def scan_and_check(
+        self,
+        root: str = ".",
+        parallel: bool = True,
+        max_workers: int = 4,
+    ) -> dict:
         """Full scan with typosquat detection."""
-        deps = self.scan_directory(root)
+        deps = (
+            self.scan_directory_parallel(root, max_workers=max_workers)
+            if parallel else self.scan_directory(root)
+        )
         results = {
             "total": len(deps),
             "typosquats": [],
