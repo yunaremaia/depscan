@@ -60,6 +60,8 @@ class Dependency:
     known_vulnerabilities: list[Vulnerability] = field(default_factory=list)
     is_typosquat: bool = False
     typosquat_target: str = ""
+    source: str = "registry"
+    is_local: bool = False
 
     @property
     def is_vulnerable(self) -> bool:
@@ -75,15 +77,25 @@ class DependencyParser:
         deps = []
         current = {}
         in_package = False
+
+        def append_current() -> None:
+            if not current.get("name"):
+                return
+            raw_source = current.get("source", "")
+            is_local = not raw_source or raw_source.startswith("path+file://") or raw_source == "workspace"
+            source = raw_source or "local"
+            deps.append(Dependency(
+                name=current.get("name", ""),
+                version=current.get("version", ""),
+                ecosystem="cargo",
+                source=source,
+                is_local=is_local,
+            ))
+
         for line in content.splitlines():
             line = line.strip()
             if line == "[[package]]":
-                if current.get("name"):
-                    deps.append(Dependency(
-                        name=current.get("name", ""),
-                        version=current.get("version", ""),
-                        ecosystem="cargo",
-                    ))
+                append_current()
                 current = {}
                 in_package = True
                 continue
@@ -91,14 +103,9 @@ class DependencyParser:
                 key, _, value = line.partition("=")
                 key = key.strip().strip('"')
                 value = value.strip().strip('"')
-                if key in ("name", "version"):
+                if key in ("name", "version", "source"):
                     current[key] = value
-        if current.get("name"):
-            deps.append(Dependency(
-                name=current.get("name", ""),
-                version=current.get("version", ""),
-                ecosystem="cargo",
-            ))
+        append_current()
         return deps
 
     @staticmethod
@@ -473,6 +480,8 @@ class MultiScanner:
 
     def check_typosquat(self, dep: Dependency) -> bool:
         """Check if a dependency name is a potential typosquat."""
+        if dep.is_local:
+            return False
         name_lower = dep.name.lower()
         for target in self._typosquat_targets:
             if name_lower == target:

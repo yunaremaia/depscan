@@ -576,6 +576,39 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_cargo_lock_records_registry_git_and_local_sources():
+    content = """
+[[package]]
+name = "serde"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "forked"
+version = "2.0.0"
+source = "git+https://github.com/acme/forked"
+
+[[package]]
+name = "workspace-lib"
+version = "0.1.0"
+"""
+    deps = DependencyParser.parse_cargo_lock(content)
+    assert deps[0].source.startswith("registry+")
+    assert deps[0].is_local is False
+    assert deps[1].source.startswith("git+")
+    assert deps[1].is_local is False
+    assert deps[2].source == "local"
+    assert deps[2].is_local is True
+
+
+def test_typosquat_check_skips_local_cargo_dependencies():
+    dep = Dependency(
+        name="reqests", version="1.0", ecosystem="cargo",
+        source="path+file:///workspace/reqests", is_local=True,
+    )
+    assert MultiScanner().check_typosquat(dep) is False
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 

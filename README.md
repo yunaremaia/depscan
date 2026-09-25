@@ -51,6 +51,10 @@ depscan info
 | Ecosystem | File | Supported Versions / Details | Status |
 |-----------|------|------------------------------|--------|
 | Cargo | Cargo.lock | Cargo packages | ✅ |
+
+Cargo lockfile entries retain their registry, Git, workspace, or local path
+source. Local and workspace packages are excluded from registry typosquat
+checks.
 | npm | package-lock.json | `lockfileVersion` 1, 2, and 3 (direct & nested `dependencies`, `packages`) | ✅ |
 | PyPI | requirements.txt | Pinned dependencies | ✅ |
 | PyPI | poetry.lock | Poetry dependencies | ✅ |
