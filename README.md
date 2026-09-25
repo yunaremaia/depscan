@@ -33,6 +33,9 @@ depscan scan .
 # Scan a specific path
 depscan scan /path/to/project
 
+# Reject the scan on the first invalid package name
+depscan scan . --strict
+
 # Output as JSON
 depscan scan . --json-output > deps.json
 

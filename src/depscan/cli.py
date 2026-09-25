@@ -46,9 +46,11 @@ def cli():
     help="Output format: text (default), json, markdown, or sarif (SARIF 2.1.0 for GitHub Code Scanning).",
 )
 @click.option("--typosquat/--no-typosquat", default=True, help="Check for typosquats")
-def scan(path, json_out, markdown_out, output_format, typosquat):
+@click.option("--strict", is_flag=True,
+              help="Fail instead of skipping invalid dependency names")
+def scan(path, json_out, markdown_out, output_format, typosquat, strict):
     """Scan a directory for dependencies."""
-    scanner = MultiScanner()
+    scanner = MultiScanner(strict=strict)
 
     # Normalise legacy flags into output_format so we have a single code path.
     if json_out and output_format == "text":

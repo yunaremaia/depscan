@@ -576,6 +576,31 @@ class TestDependency:
         assert dep.is_vulnerable is True
 
 
+def test_scan_skips_invalid_package_names_by_default(tmp_path):
+    path = tmp_path / "requirements.txt"
+    path.write_text("safe-package==1.0\nevil;command==2.0\n")
+    with pytest.warns(RuntimeWarning, match="Skipping invalid"):
+        deps = MultiScanner().scan_file(str(path))
+    assert [dep.name for dep in deps] == ["safe-package"]
+
+
+def test_strict_scan_rejects_invalid_package_names(tmp_path):
+    path = tmp_path / "requirements.txt"
+    path.write_text("evil;command==2.0\n")
+    with pytest.raises(ValueError, match="Invalid package name"):
+        MultiScanner(strict=True).scan_file(str(path))
+
+
+def test_scoped_npm_and_go_names_remain_valid(tmp_path):
+    npm = tmp_path / "package-lock.json"
+    npm.write_text('{"lockfileVersion": 3, "packages": {"node_modules/@acme/pkg": {"version": "1.0"}}}')
+    go = tmp_path / "go.mod"
+    go.write_text("require github.com/acme/pkg v1.0.0\n")
+    scanner = MultiScanner(strict=True)
+    assert scanner.scan_file(str(npm))[0].name == "@acme/pkg"
+    assert scanner.scan_file(str(go))[0].name == "github.com/acme/pkg"
+
+
 class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 

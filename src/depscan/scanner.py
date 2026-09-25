@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -13,15 +14,26 @@ from typing import Iterator
 # and underscores are permitted.  Anything else (semicolons, pipes, spaces, …)
 # would indicate an injection attempt and is rejected before any subprocess call.
 SAFE_PACKAGE_NAME_RE = re.compile(r'^[a-zA-Z0-9._-]+$')
+SCOPED_PACKAGE_NAME_RE = re.compile(r'^[a-zA-Z0-9@][a-zA-Z0-9._@/-]*$')
 
 
-def validate_package_name(name: str) -> None:
+def validate_package_name(name: str, ecosystem: str = "") -> None:
     """Validate *name* against the safe-package-name allowlist.
 
     Raises:
         ValueError: If *name* contains characters outside ``[a-zA-Z0-9._-]``.
     """
-    if not SAFE_PACKAGE_NAME_RE.match(name):
+    pattern = (
+        SCOPED_PACKAGE_NAME_RE
+        if ecosystem in {"go", "npm"}
+        else SAFE_PACKAGE_NAME_RE
+    )
+    if (
+        not pattern.fullmatch(name)
+        or name.startswith("-")
+        or "://" in name
+        or ".." in name.split("/")
+    ):
         raise ValueError("Invalid package name")
 
 
@@ -400,9 +412,27 @@ class DependencyParser:
 class MultiScanner:
     """Scan dependencies across multiple ecosystems."""
 
-    def __init__(self):
+    def __init__(self, strict: bool = False):
         self.parser = DependencyParser()
+        self.strict = strict
         self._typosquat_targets = self._load_typosquat_targets()
+
+    def _validated(self, deps: list[Dependency]) -> list[Dependency]:
+        """Reject invalid names in strict mode; otherwise warn and skip them."""
+        valid = []
+        for dep in deps:
+            try:
+                validate_package_name(dep.name, dep.ecosystem)
+            except ValueError:
+                if self.strict:
+                    raise
+                warnings.warn(
+                    f"Skipping invalid {dep.ecosystem} package name: {dep.name!r}",
+                    RuntimeWarning,
+                )
+                continue
+            valid.append(dep)
+        return valid
 
     def _load_typosquat_targets(self) -> list[str]:
         """Load common package names that are typosquat targets."""
@@ -439,21 +469,22 @@ class MultiScanner:
         # Try by filename
         filename = path.name.lower()
         if "cargo.lock" in filename:
-            return self.parser.parse_cargo_lock(content)
+            deps = self.parser.parse_cargo_lock(content)
         elif "package-lock" in filename:
-            return self.parser.parse_package_lock(content)
+            deps = self.parser.parse_package_lock(content)
         elif "pipfile.lock" in filename:
-            return self.parser.parse_pipfile_lock(content)
+            deps = self.parser.parse_pipfile_lock(content)
         elif "requirements" in filename:
-            return self.parser.parse_requirements_txt(content)
+            deps = self.parser.parse_requirements_txt(content)
         elif filename == "go.mod":
-            return self.parser.parse_go_mod(content)
+            deps = self.parser.parse_go_mod(content)
         elif "poetry.lock" in filename:
-            return self.parser.parse_poetry_lock(content)
+            deps = self.parser.parse_poetry_lock(content)
         elif "gemfile.lock" in filename:
-            return self.parser.parse_gemfile_lock(content)
-
-        return []
+            deps = self.parser.parse_gemfile_lock(content)
+        else:
+            deps = []
+        return self._validated(deps)
 
     def scan_directory(self, root: str = ".") -> list[Dependency]:
         """Scan all dependency files in a directory."""
