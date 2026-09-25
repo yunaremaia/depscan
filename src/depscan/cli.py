@@ -46,7 +46,16 @@ def cli():
     help="Output format: text (default), json, markdown, or sarif (SARIF 2.1.0 for GitHub Code Scanning).",
 )
 @click.option("--typosquat/--no-typosquat", default=True, help="Check for typosquats")
-def scan(path, json_out, markdown_out, output_format, typosquat):
+@click.option("--severity", help="Comma-separated severities to include")
+@click.option("--ecosystem", help="Comma-separated ecosystems to include")
+@click.option(
+    "--min-severity",
+    type=click.Choice(["low", "medium", "high", "critical"]),
+)
+def scan(
+    path, json_out, markdown_out, output_format, typosquat,
+    severity, ecosystem, min_severity,
+):
     """Scan a directory for dependencies."""
     scanner = MultiScanner()
 
@@ -56,10 +65,29 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
     if markdown_out and output_format == "text":
         output_format = "markdown"
 
+    from depscan.filters import filter_results
+
+    severities = (
+        {value.strip().lower() for value in severity.split(",") if value.strip()}
+        if severity else None
+    )
+    ecosystems = (
+        {value.strip().lower() for value in ecosystem.split(",") if value.strip()}
+        if ecosystem else None
+    )
+
+    def apply_filters(results):
+        return filter_results(
+            results,
+            severities=severities,
+            ecosystems=ecosystems,
+            min_severity=min_severity,
+        )
+
     # SARIF output: scan then emit SARIF 2.1.0 to stdout — no progress spinner
     # so the output can be piped directly to a file.
     if output_format == "sarif":
-        results = scanner.scan_and_check(path)
+        results = apply_filters(scanner.scan_and_check(path))
         findings = findings_from_scan_results(results)
         sarif_doc = to_sarif(findings, repo_root=path)
         click.echo(json.dumps(sarif_doc, indent=2))
@@ -72,7 +100,7 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
         try:
-            results = scanner.scan_and_check(path)
+            results = apply_filters(scanner.scan_and_check(path))
         finally:
             sys.stdout = old_stdout
 
@@ -82,6 +110,22 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
             "typosquats": [
                 {"name": d.name, "version": d.version, "target": d.typosquat_target}
                 for d in results["typosquats"]
+            ],
+            "vulnerabilities": [
+                {
+                    "name": dep.name,
+                    "version": dep.version,
+                    "ecosystem": dep.ecosystem,
+                    "cves": [
+                        {
+                            "id": vulnerability.id,
+                            "severity": vulnerability.severity,
+                            "description": vulnerability.description,
+                        }
+                        for vulnerability in dep.known_vulnerabilities
+                    ],
+                }
+                for dep in results.get("vulnerable", [])
             ],
             "by_ecosystem": results["by_ecosystem"],
         }
@@ -96,7 +140,7 @@ def scan(path, json_out, markdown_out, output_format, typosquat):
         console=console,
     ) as progress:
         task = progress.add_task(f"Scanning {path}...", total=None)
-        results = scanner.scan_and_check(path)
+        results = apply_filters(scanner.scan_and_check(path))
         progress.update(task, completed=True)
 
     if output_format == "markdown":

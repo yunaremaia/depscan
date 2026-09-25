@@ -33,6 +33,11 @@ depscan scan .
 # Scan a specific path
 depscan scan /path/to/project
 
+# Focus reports by ecosystem or finding severity
+depscan scan . --ecosystem npm,pypi
+depscan scan . --severity high,critical
+depscan scan . --min-severity high
+
 # Output as JSON
 depscan scan . --json-output > deps.json
 
