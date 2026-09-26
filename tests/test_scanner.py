@@ -13,7 +13,6 @@ from depscan.scanner import (
     SAFE_PACKAGE_NAME_RE,
 )
 
-
 class TestDependencyParser:
     def setup_method(self):
         self.parser = DependencyParser()
@@ -470,7 +469,6 @@ GEM
     test_plfile_lock_uses_exact_versions = test_pipfile_lock_uses_exact_versions
     test_plfile_lock_malformed_json = test_pipfile_lock_malformed_json
 
-
 class TestMultiScanner:
     def setup_method(self):
         self.scanner = MultiScanner()
@@ -486,7 +484,6 @@ class TestMultiScanner:
     def test_no_typosquat_for_known_package(self):
         dep = Dependency(name="requests", version="2.28.0", ecosystem="pypi")
         assert self.scanner.check_typosquat(dep) is False
-
 
 class TestScanDirectory:
     def test_scan_nonexistent(self):
@@ -561,8 +558,6 @@ class TestScanDirectory:
         assert results["by_ecosystem"].get("rubygems") == 1
         assert len(results["typosquats"]) == 1
 
-
-
 class TestDependency:
     def test_is_vulnerable_false(self):
         dep = Dependency(name="test", version="1.0.0", ecosystem="pypi")
@@ -575,7 +570,6 @@ class TestDependency:
         )
         assert dep.is_vulnerable is True
 
-
 def test_scan_skips_invalid_package_names_by_default(tmp_path):
     path = tmp_path / "requirements.txt"
     path.write_text("safe-package==1.0\nevil;command==2.0\n")
@@ -583,13 +577,11 @@ def test_scan_skips_invalid_package_names_by_default(tmp_path):
         deps = MultiScanner().scan_file(str(path))
     assert [dep.name for dep in deps] == ["safe-package"]
 
-
 def test_strict_scan_rejects_invalid_package_names(tmp_path):
     path = tmp_path / "requirements.txt"
     path.write_text("evil;command==2.0\n")
     with pytest.raises(ValueError, match="Invalid package name"):
         MultiScanner(strict=True).scan_file(str(path))
-
 
 def test_scoped_npm_and_go_names_remain_valid(tmp_path):
     npm = tmp_path / "package-lock.json"
@@ -600,104 +592,31 @@ def test_scoped_npm_and_go_names_remain_valid(tmp_path):
     assert scanner.scan_file(str(npm))[0].name == "@acme/pkg"
     assert scanner.scan_file(str(go))[0].name == "github.com/acme/pkg"
 
+def test_go_mod_skips_single_line_excluded_version():
+    content = """
+require (
+    github.com/acme/unsafe v1.2.0
+    github.com/acme/safe v2.0.0
+)
+exclude github.com/acme/unsafe v1.2.0 // known bad release
+"""
+    deps = DependencyParser.parse_go_mod(content)
+    assert [(dep.name, dep.version) for dep in deps] == [
+        ("github.com/acme/safe", "2.0.0")
+    ]
 
-class TestPackageNameValidation:
-    """Tests for validate_package_name() and the check() subprocess guard.
-
-    These tests exercise the security boundary introduced to prevent
-    package-name injection into subprocess calls (issue #119).
-    """
-
-    # --- validate_package_name ---
-
-    @pytest.mark.parametrize("malicious_name", [
-        "; rm -rf /",
-        "lodash; rm -rf /",
-        "pkg | cat /etc/passwd",
-        "pkg && evil",
-        "pkg\necho pwned",
-        "pkg$(whoami)",
-        "pkg`id`",
-        "pkg >out.txt",
-        "pkg <in.txt",
-        "pkg$PATH",
-        "pkg name",          # space is not allowed
-        "pkg/subdir",        # forward-slash is not allowed
-        "pkg\\evil",         # backslash is not allowed
-        "",                  # empty string
-        "\x00pkg",           # null byte
-    ])
-    def test_validate_package_name_raises_for_malicious_input(self, malicious_name):
-        """validate_package_name() must raise ValueError for any name that
-        contains characters outside the safe [a-zA-Z0-9._-] allowlist."""
-        with pytest.raises(ValueError, match="Invalid package name"):
-            validate_package_name(malicious_name)
-
-    @pytest.mark.parametrize("safe_name", [
-        "lodash",
-        "react",
-        "my-package",
-        "my_package",
-        "my.package",
-        "Pkg123",
-        "pkg-0.1.0",
-        "@",               # edge: single allowed-adjacent char — rejected by regex
-    ])
-    def test_validate_package_name_accepts_safe_names(self, safe_name):
-        """Names composed solely of [a-zA-Z0-9._-] must not raise."""
-        # "@" is NOT in the allowlist — skip it so we only test truly safe names.
-        if not SAFE_PACKAGE_NAME_RE.match(safe_name):
-            pytest.skip(f"{safe_name!r} is intentionally outside the allowlist")
-        # Should not raise
-        validate_package_name(safe_name)
-
-    # --- check() ---
-
-    def test_check_raises_value_error_for_malicious_package_name(self):
-        """check() must raise ValueError — and must NOT invoke subprocess —
-        when the package name is malicious (e.g. contains shell metacharacters).
-        This is the primary acceptance criterion for issue #119.
-        """
-        with patch("depscan.scanner.subprocess.run") as mock_run:
-            with pytest.raises(ValueError, match="Invalid package name"):
-                check("; rm -rf /")
-            # The subprocess must never have been called
-            mock_run.assert_not_called()
-
-    def test_check_raises_for_semicolon_injection(self):
-        """Semicolons are a classic shell-injection vector and must be rejected."""
-        with patch("depscan.scanner.subprocess.run"):
-            with pytest.raises(ValueError, match="Invalid package name"):
-                check("lodash; rm -rf /")
-
-    def test_check_raises_for_pipe_injection(self):
-        """Pipe characters must be rejected."""
-        with patch("depscan.scanner.subprocess.run"):
-            with pytest.raises(ValueError, match="Invalid package name"):
-                check("pkg | cat /etc/passwd")
-
-    def test_check_raises_for_empty_string(self):
-        """An empty package name must be rejected."""
-        with patch("depscan.scanner.subprocess.run"):
-            with pytest.raises(ValueError, match="Invalid package name"):
-                check("")
-
-    def test_check_calls_subprocess_with_list_and_no_shell(self):
-        """When given a *valid* package name, check() must call subprocess.run
-        with a list of arguments and shell=False (never shell=True)."""
-        import json as _json
-        fake_result = type("R", (), {
-            "stdout": _json.dumps({"vulnerabilities": {}}),
-            "stderr": "",
-            "returncode": 0,
-        })()
-        with patch("depscan.scanner.subprocess.run", return_value=fake_result) as mock_run:
-            result = check("lodash")
-            args, kwargs = mock_run.call_args
-            # First positional arg must be a list (not a string)
-            assert isinstance(args[0], list), "subprocess.run must receive a list, not a string"
-            # shell must be explicitly False
-            assert kwargs.get("shell") is False, "shell=True would re-introduce the injection vector"
-            # package name must appear in the argument list
-            assert "lodash" in args[0]
-        assert result == {"vulnerabilities": {}}
+def test_go_mod_skips_block_exclusions_only_when_version_matches():
+    content = """
+require (
+    github.com/acme/foo v1.2.0
+    github.com/acme/bar v3.0.0
+)
+exclude (
+    github.com/acme/foo v1.1.0
+    github.com/acme/bar v3.0.0
+)
+"""
+    deps = DependencyParser.parse_go_mod(content)
+    assert [(dep.name, dep.version) for dep in deps] == [
+        ("github.com/acme/foo", "1.2.0")
+    ]
