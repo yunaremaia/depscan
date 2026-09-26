@@ -14,7 +14,8 @@ keywords = ["security", "dependencies", "typosquat", "scanner", "sbom"]
 dependencies = ["click>=8.1", "rich>=13.0"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+test = ["pytest>=7.0", "pytest-cov>=4.0"]
 
 [project.scripts]
 depscan = "depscan.cli:cli"
