@@ -17,7 +17,7 @@ Scan dependencies across multiple ecosystems with typosquat detection.
 ## Install
 
 ```bash
-pip install depscan
+pip install git+https://github.com/yunaremaia/depscan.git
 ```
 
 Or from source:

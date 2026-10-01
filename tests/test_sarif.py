@@ -348,6 +348,25 @@ class TestSarifRules:
         assert "helpUri" in rule
         assert rule["helpUri"].startswith("https://")
 
+    def test_rule_help_uri_points_at_this_project(self, single_finding_sarif):
+        """helpUri must not advertise a same-named repo owned by anyone else.
+
+        The owner is hardcoded on purpose: comparing against the module's own
+        constant would pass even when that constant is wrong.
+        """
+        rule = single_finding_sarif["runs"][0]["tool"]["driver"]["rules"][0]
+        assert rule["helpUri"].startswith("https://github.com/yunaremaia/depscan")
+
+    def test_driver_information_uri_points_at_this_project(self, single_finding_sarif):
+        """Consumers render informationUri; it must be this project's repo."""
+        driver = single_finding_sarif["runs"][0]["tool"]["driver"]
+        assert driver["informationUri"] == "https://github.com/yunaremaia/depscan"
+
+    def test_no_third_party_urls_in_document(self, single_finding_sarif):
+        """No SARIF URL may point at a repository this project does not own."""
+        blob = json.dumps(single_finding_sarif)
+        assert "Ts-Boom" not in blob
+
     def test_rule_has_default_configuration_level(self, single_finding_sarif):
         rule = single_finding_sarif["runs"][0]["tool"]["driver"]["rules"][0]
         assert "defaultConfiguration" in rule

@@ -30,6 +30,12 @@ SARIF_SCHEMA = (
 )
 SARIF_VERSION = "2.1.0"
 
+#: Canonical project URLs.  SARIF consumers show ``informationUri`` and
+#: ``helpUri`` verbatim, so they must point at this project — not at a
+#: same-named repository owned by somebody else.
+PROJECT_URL = "https://github.com/yunaremaia/depscan"
+SECURITY_URL = f"{PROJECT_URL}/blob/main/SECURITY.md"
+
 #: Rule IDs used in the SARIF output.  Each maps to a human-readable name and
 #: a help URI so that developers can follow the link in GitHub's UI.
 _RULE_DEFINITIONS: dict[str, dict[str, str]] = {
@@ -40,7 +46,7 @@ _RULE_DEFINITIONS: dict[str, dict[str, str]] = {
             "The dependency name is suspiciously similar to a well-known package. "
             "This may indicate a supply-chain typosquatting attack."
         ),
-        "helpUri": "https://github.com/Ts-Boom/depscan/blob/main/SECURITY.md",
+        "helpUri": SECURITY_URL,
         "defaultLevel": "warning",
     },
     "DEPSCAN002": {
@@ -50,7 +56,7 @@ _RULE_DEFINITIONS: dict[str, dict[str, str]] = {
             "A CVE or advisory has been published for this dependency version. "
             "Upgrade to the fixed version as soon as possible."
         ),
-        "helpUri": "https://github.com/Ts-Boom/depscan/blob/main/SECURITY.md",
+        "helpUri": SECURITY_URL,
         "defaultLevel": "error",
     },
 }
@@ -166,7 +172,7 @@ def to_sarif(findings: list[Finding], repo_root: str = ".") -> dict[str, Any]:
                     "driver": {
                         "name": "depscan",
                         "version": "0.1.0",
-                        "informationUri": "https://github.com/Ts-Boom/depscan",
+                        "informationUri": PROJECT_URL,
                         "rules": rules,
                     }
                 },
