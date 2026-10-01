@@ -2,8 +2,7 @@
 
 [![CI](https://github.com/yunaremaia/depscan/actions/workflows/ci.yml/badge.svg)](https://github.com/yunaremaia/depscan/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![PyPI version](https://img.shields.io/pypi/v/depscan.svg)](https://pypi.org/project/depscan/)
-[![PyPI downloads](https://img.shields.io/pypi/dm/depscan.svg)](https://pypi.org/project/depscan/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Scan dependencies across multiple ecosystems with typosquat detection.
 
