@@ -1,5 +1,4 @@
 """Tests for lockfile integrity verification."""
-from pathlib import Path
 
 from depscan.integrity import sha256_file, verify_manifest, write_manifest
 

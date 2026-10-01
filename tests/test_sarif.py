@@ -14,10 +14,6 @@ import pytest
 
 from depscan.sarif import (
     Finding,
-    SARIF_VERSION,
-    SARIF_SCHEMA,
-    _RULE_DEFINITIONS,
-    _SEVERITY_TO_LEVEL,
     findings_from_scan_results,
     to_sarif,
 )

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import html
-import json
 from datetime import datetime
 from typing import Any
 
@@ -26,7 +25,7 @@ class MarkdownFormatter:
         by_eco = results.get("by_ecosystem", {})
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        lines.append(f"# Dependency Scan Report")
+        lines.append("# Dependency Scan Report")
         lines.append(f"\n**Scan Date:** {timestamp}")
         lines.append(f"\n**Total Dependencies Scanned:** {total}")
         lines.append("")

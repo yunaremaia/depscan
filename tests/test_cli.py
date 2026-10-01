@@ -1,7 +1,6 @@
 """Tests for depscan CLI exit codes and output formats."""
 import json
 import subprocess
-from pathlib import Path
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -51,10 +50,12 @@ def test_check_invalid_name_rejects_injection(tmp_path):
     result = run_depscan("check", "foo; rm -rf /", "1.0.0")
     assert result.returncode == 2, f"exit={result.returncode}\n{result.stderr}"
 
+
 def test_check_invalid_name_rejects_uri_scheme(tmp_path):
     """Security: URI scheme names must be rejected."""
     result = run_depscan("check", "file://etc/passwd", "1.0.0")
     assert result.returncode == 2, f"exit={result.returncode}\n{result.stderr}"
+
 
 def test_check_valid_name_succeeds(tmp_path):
     """Normal package names must work."""
@@ -71,7 +72,6 @@ def test_info_shows_version_and_output_formats():
     assert "JSON" in result.output
     assert "Markdown" in result.output
     assert "SARIF" in result.output
-
 
 
 def test_list_deps_json_includes_source_file():
@@ -93,7 +93,6 @@ def test_list_deps_json_includes_source_file():
     }]
 
 
-
 def test_init_creates_valid_relaxed_config(tmp_path):
     config_path = tmp_path / ".depscan.yml"
     runner = CliRunner()
@@ -104,7 +103,6 @@ def test_init_creates_valid_relaxed_config(tmp_path):
     assert created.exit_code == 0
     assert validated.exit_code == 0
     assert "output_format: text" in config_path.read_text()
-
 
 
 def test_init_profiles_and_force(tmp_path):
@@ -123,7 +121,6 @@ def test_init_profiles_and_force(tmp_path):
     assert "output_format: sarif" in config_path.read_text()
 
 
-
 def test_ci_exits_one_for_typosquat():
     dep = Dependency(name="reqests", version="1.0", ecosystem="pypi")
     dep.typosquat_target = "requests"
@@ -134,7 +131,6 @@ def test_ci_exits_one_for_typosquat():
     assert "TYPOSQUAT" in result.output
 
 
-
 def test_ci_allow_known_ignores_vulnerabilities():
     dep = Dependency(name="package", version="1.0", ecosystem="npm")
     results = {"total": 1, "typosquats": [], "vulnerable": [dep], "by_ecosystem": {"npm": 1}}
@@ -142,7 +138,6 @@ def test_ci_allow_known_ignores_vulnerabilities():
         result = CliRunner().invoke(cli, ["ci", ".", "--allow-known"])
     assert result.exit_code == 0
     assert "No blocking dependency findings" in result.output
-
 
 
 def test_fail_on_policies():

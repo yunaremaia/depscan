@@ -15,9 +15,7 @@ try:
 except ModuleNotFoundError:  # Python 3.10
     import tomli as tomllib
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Iterator
 
 # Strict allowlist for package names: only alphanumeric characters, dots, hyphens,
 # and underscores are permitted.  Anything else (semicolons, pipes, spaces, …)
@@ -451,6 +449,7 @@ class DependencyParser:
                     ecosystem="pypi",
                 ))
         return deps
+
     @staticmethod
     def parse_go_mod(content: str) -> list[Dependency]:
         """Parse go.mod require and replace directives."""

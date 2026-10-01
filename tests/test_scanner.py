@@ -13,6 +13,7 @@ from depscan.scanner import (
     SAFE_PACKAGE_NAME_RE,
 )
 
+
 class TestDependencyParser:
     def setup_method(self):
         self.parser = DependencyParser()
@@ -469,11 +470,10 @@ GEM
     test_plfile_lock_uses_exact_versions = test_pipfile_lock_uses_exact_versions
     test_plfile_lock_malformed_json = test_pipfile_lock_malformed_json
 
+
 class TestMultiScanner:
     def setup_method(self):
         self.scanner = MultiScanner()
-
-    
 
     def test_typosquat_detection(self):
         dep = Dependency(name="raquests", version="1.0.0", ecosystem="pypi")
@@ -484,6 +484,7 @@ class TestMultiScanner:
     def test_no_typosquat_for_known_package(self):
         dep = Dependency(name="requests", version="2.28.0", ecosystem="pypi")
         assert self.scanner.check_typosquat(dep) is False
+
 
 class TestScanDirectory:
     def test_scan_nonexistent(self):
@@ -558,6 +559,7 @@ class TestScanDirectory:
         assert results["by_ecosystem"].get("rubygems") == 1
         assert len(results["typosquats"]) == 1
 
+
 class TestDependency:
     def test_is_vulnerable_false(self):
         dep = Dependency(name="test", version="1.0.0", ecosystem="pypi")
@@ -570,6 +572,7 @@ class TestDependency:
         )
         assert dep.is_vulnerable is True
 
+
 def test_scan_skips_invalid_package_names_by_default(tmp_path):
     path = tmp_path / "requirements.txt"
     path.write_text("safe-package==1.0\nevil;command==2.0\n")
@@ -577,11 +580,13 @@ def test_scan_skips_invalid_package_names_by_default(tmp_path):
         deps = MultiScanner().scan_file(str(path))
     assert [dep.name for dep in deps] == ["safe-package"]
 
+
 def test_strict_scan_rejects_invalid_package_names(tmp_path):
     path = tmp_path / "requirements.txt"
     path.write_text("evil;command==2.0\n")
     with pytest.raises(ValueError, match="Invalid package name"):
         MultiScanner(strict=True).scan_file(str(path))
+
 
 def test_scoped_npm_and_go_names_remain_valid(tmp_path):
     npm = tmp_path / "package-lock.json"
@@ -591,6 +596,7 @@ def test_scoped_npm_and_go_names_remain_valid(tmp_path):
     scanner = MultiScanner(strict=True)
     assert scanner.scan_file(str(npm))[0].name == "@acme/pkg"
     assert scanner.scan_file(str(go))[0].name == "github.com/acme/pkg"
+
 
 def test_go_mod_skips_single_line_excluded_version():
     content = """
@@ -604,6 +610,7 @@ exclude github.com/acme/unsafe v1.2.0 // known bad release
     assert [(dep.name, dep.version) for dep in deps] == [
         ("github.com/acme/safe", "2.0.0")
     ]
+
 
 def test_go_mod_skips_block_exclusions_only_when_version_matches():
     content = """
@@ -621,8 +628,6 @@ exclude (
         ("github.com/acme/foo", "1.2.0")
     ]
 
-
-
     def test_parse_requirements_txt_strips_environment_markers(self):
         content = 'certifi==2023.7.22; python_version >= "3.8"\nflask>=2.0; sys_platform == "win32"\n'
         deps = self.parser.parse_requirements_txt(content)
@@ -631,8 +636,6 @@ exclude (
             ("flask", "2.0"),
         ]
 
-
-
     def test_parse_requirements_txt_strips_extras(self):
         content = "urllib3[security]==2.0.0\npackage[extra1,extra2]>=1.0.0\n"
         deps = self.parser.parse_requirements_txt(content)
@@ -640,8 +643,6 @@ exclude (
             ("urllib3", "2.0.0"),
             ("package", "1.0.0"),
         ]
-
-
 
     def test_scan_directory_skips_unreadable_file(self, tmp_path):
         bad = tmp_path / "bad" / "requirements.txt"
@@ -663,8 +664,6 @@ exclude (
                 deps = scanner.scan_directory(str(tmp_path))
         assert [(dep.name, dep.version) for dep in deps] == [("requests", "2.28.0")]
 
-
-
     def test_levenshtein_distance_threshold(self):
         scanner = MultiScanner()
         assert scanner._levenshtein("requests", "raquests", 2) == 1
@@ -672,15 +671,12 @@ exclude (
         assert scanner._levenshtein("a", "aaaa", 2) > 2
         assert scanner._levenshtein("abcd", "wxyz") == 4
 
-
-
     def test_levenshtein_uses_cache(self):
         scanner = MultiScanner()
         scanner._levenshtein.cache_clear()
         scanner._levenshtein("raquests", "requests", 2)
         scanner._levenshtein("raquests", "requests", 2)
         assert scanner._levenshtein.cache_info().hits == 1
-
 
 
 def test_parse_package_json_mixed_dependencies():
@@ -696,8 +692,6 @@ def test_parse_package_json_mixed_dependencies():
         ("pytest-js", "^1.0.0", "npm"),
     }
 
-
-class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
     These tests exercise the security boundary introduced to prevent
@@ -797,7 +791,6 @@ class TestPackageNameValidation:
             # package name must appear in the argument list
             assert "lodash" in args[0]
         assert result == {"vulnerabilities": {}}
-
 
 
 def test_parse_cargo_toml_all_dependency_sections():
@@ -821,8 +814,6 @@ cc = { workspace = true }
         ("cc", "workspace", "cargo"),
     }
 
-
-class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
     These tests exercise the security boundary introduced to prevent
@@ -922,7 +913,6 @@ class TestPackageNameValidation:
             # package name must appear in the argument list
             assert "lodash" in args[0]
         assert result == {"vulnerabilities": {}}
-
 
 
 def test_parse_pyproject_toml_pep621_and_poetry():
@@ -946,8 +936,6 @@ pendulum = { version = "^3.0" }
         ("pendulum", "^3.0", "pypi"),
     }
 
-
-class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
     These tests exercise the security boundary introduced to prevent
@@ -1047,7 +1035,6 @@ class TestPackageNameValidation:
             # package name must appear in the argument list
             assert "lodash" in args[0]
         assert result == {"vulnerabilities": {}}
-
 
 
 def test_scan_directory_skips_dependency_directories(tmp_path):
@@ -1062,7 +1049,6 @@ def test_scan_directory_skips_dependency_directories(tmp_path):
     assert [(dep.name, dep.version) for dep in deps] == [("requests", "2.31.0")]
 
 
-
 def test_scan_directory_honors_custom_excludes(tmp_path):
     generated = tmp_path / "generated"
     generated.mkdir()
@@ -1074,7 +1060,6 @@ def test_scan_directory_honors_custom_excludes(tmp_path):
     assert [dep.name for dep in deps] == ["requests"]
 
 
-
 def test_scan_directory_can_include_hidden_directories(tmp_path):
     hidden = tmp_path / ".fixtures"
     hidden.mkdir()
@@ -1084,8 +1069,6 @@ def test_scan_directory_can_include_hidden_directories(tmp_path):
     deps = MultiScanner().scan_directory(str(tmp_path), include_hidden=True)
     assert [dep.name for dep in deps] == ["hidden-package"]
 
-
-class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
     These tests exercise the security boundary introduced to prevent
@@ -1185,7 +1168,6 @@ class TestPackageNameValidation:
             # package name must appear in the argument list
             assert "lodash" in args[0]
         assert result == {"vulnerabilities": {}}
-
 
 
 def test_parallel_scan_matches_sequential_results(tmp_path):
@@ -1204,14 +1186,11 @@ def test_parallel_scan_matches_sequential_results(tmp_path):
     ]
 
 
-
 def test_scan_and_check_can_disable_parallel_mode(tmp_path):
     (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
     results = MultiScanner().scan_and_check(str(tmp_path), parallel=False)
     assert results["total"] == 1
 
-
-class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
     These tests exercise the security boundary introduced to prevent
@@ -1313,7 +1292,6 @@ class TestPackageNameValidation:
         assert result == {"vulnerabilities": {}}
 
 
-
 def test_go_sum_parsing_deduplicates_module_hash_entries():
     content = """
 github.com/acme/foo v1.2.3 h1:abc
@@ -1326,7 +1304,6 @@ malformed line
         ("github.com/acme/foo", "1.2.3"),
         ("github.com/acme/bar", "0.4.0"),
     ]
-
 
 
 def test_go_sum_marks_only_unrequired_modules_orphaned(tmp_path):
@@ -1346,8 +1323,6 @@ def test_go_sum_marks_only_unrequired_modules_orphaned(tmp_path):
     assert go_sum["github.com/acme/foo"].is_orphaned is False
     assert go_sum["github.com/acme/bar"].is_orphaned is True
 
-
-class TestPackageNameValidation:
     """Tests for validate_package_name() and the check() subprocess guard.
 
     These tests exercise the security boundary introduced to prevent
@@ -1447,7 +1422,6 @@ class TestPackageNameValidation:
             # package name must appear in the argument list
             assert "lodash" in args[0]
         assert result == {"vulnerabilities": {}}
-
 
 
 def test_cargo_lock_records_registry_git_and_local_sources():
@@ -1473,7 +1447,6 @@ version = "0.1.0"
     assert deps[1].is_local is False
     assert deps[2].source == "local"
     assert deps[2].is_local is True
-
 
 
 def test_typosquat_check_skips_local_cargo_dependencies():

@@ -52,7 +52,6 @@ def test_empty_results():
     assert "✅ Scan Complete" not in md
 
 
-
 def test_markdown_escapes_html_in_package_name():
     from depscan.scanner import Dependency
     dep = Dependency(name="<script>alert(1)</script>", version="1.0", ecosystem="npm")
@@ -62,7 +61,6 @@ def test_markdown_escapes_html_in_package_name():
     )
     assert "<script>" not in md
     assert "&lt;script&gt;" in md
-
 
 
 def test_markdown_escapes_html_in_version():
@@ -76,7 +74,6 @@ def test_markdown_escapes_html_in_version():
     assert "&lt;img" in md
 
 
-
 def test_markdown_escapes_html_in_description():
     from depscan.scanner import Dependency, Vulnerability
     dep = Dependency(name="package", version="1.0", ecosystem="npm")
@@ -88,7 +85,6 @@ def test_markdown_escapes_html_in_description():
     )
     assert "<b>" not in md
     assert "&lt;b&gt;unsafe&lt;/b&gt;" in md
-
 
 
 def test_markdown_safe_output_flag():

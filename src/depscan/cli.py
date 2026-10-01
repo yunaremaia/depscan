@@ -19,6 +19,7 @@ import re as _re
 
 console = Console(safe_box=True)
 
+
 def _should_fail(results: dict, fail_on: str | None) -> bool:
     """Return whether the selected finding policy should fail the command."""
     if fail_on is None:
