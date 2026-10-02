@@ -4,5 +4,11 @@
   language: python
   files: '(Cargo\.lock|package-lock\.json|Pipfile\.lock|requirements\.txt|go\.mod|poetry\.lock)$'
   additional_dependencies:
-    - "depscan>=0.1.0"
+    # The bare `depscan` name on PyPI belongs to an unrelated third-party
+    # project (linkedlist771/depscan). Pinning it here would make pre-commit
+    # install that package and run *its* `depscan scan` on every commit, so the
+    # distribution name is `depscan-py` and it is not on PyPI yet -- install it
+    # straight from this repository instead. The hook id and the `entry`
+    # console script stay `depscan`.
+    - "depscan-py @ git+https://github.com/yunaremaia/depscan.git"
   args: ["--no-typosquat"]

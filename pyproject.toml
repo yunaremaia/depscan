@@ -3,7 +3,14 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "depscan"
+# The distribution name is NOT the repo name. The bare `depscan` name on PyPI
+# belongs to an unrelated third-party project (linkedlist771/depscan), so
+# claiming it would be an unpublishable collision and every bare
+# `pip install depscan` would silently hand the reader someone else's package.
+# `-py` is the same disambiguation convention used by pytest, coverage and
+# friends. The console script stays `depscan` -- only the distribution name
+# carries the suffix.
+name = "depscan-py"
 version = "0.1.0"
 description = "Multi-ecosystem dependency scanner with typosquat detection"
 readme = "README.md"

@@ -16,9 +16,18 @@ Scan dependencies across multiple ecosystems with typosquat detection.
 
 ## Install
 
+depscan is not published on PyPI yet, so install it straight from the repository:
+
 ```bash
 pip install git+https://github.com/yunaremaia/depscan.git
 ```
+
+> **A note on the name.** The bare `depscan` name on PyPI is taken by an
+> unrelated third-party project by a different author, so this project's
+> distribution is published under the name **`depscan-py`**. That collision is
+> why the install line above points at git for now, and why the PyPI name will
+> differ from the repository name. The command you type after installing is
+> still `depscan`.
 
 Or from source:
 

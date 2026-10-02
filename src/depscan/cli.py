@@ -11,6 +11,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+from depscan import __version__
 from depscan.scanner import MultiScanner, Dependency
 from depscan.formatter import MarkdownFormatter
 from depscan.sarif import to_sarif, findings_from_scan_results
@@ -41,7 +42,7 @@ def _truncate(text: str, length: int = 40) -> str:
 
 
 @click.group()
-@click.version_option(package_name="depscan")
+@click.version_option(version=__version__, prog_name="depscan")
 def cli():
     """depscan — Multi-ecosystem dependency scanner."""
     pass

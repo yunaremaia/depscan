@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The distribution name is now `depscan-py`. The bare `depscan` name on PyPI
+  belongs to an unrelated third-party project (linkedlist771/depscan), so the
+  previous name could never be published, and every bare `pip install depscan`
+  silently installed that other author's package. The console script, the
+  pre-commit hook id and the `depscan` command itself are unchanged.
+- `.pre-commit-hooks.yaml` now installs the hook from this repository instead of
+  resolving `depscan` through PyPI, which previously made pre-commit run another
+  author's `depscan scan` on every commit.
+- `--version` no longer resolves the version through the distribution name, so
+  it keeps working under the renamed distribution.
+- Added a publish workflow triggered on GitHub release publication.
+
 ### Added
 - Support for `Pipfile.lock` (JSON) format in `DependencyParser` and `MultiScanner`
 
