@@ -28,13 +28,28 @@ def sha256_file(path: Path) -> str:
 
 
 def write_manifest(root: Path, files: Iterable[Path]) -> Path:
-    """Write known-good hashes relative to root."""
+    """Write known-good hashes relative to root.
+
+    Only the ``files`` section is regenerated. Any other top-level key already
+    in the manifest -- ``$schema``, ownership notes, hand-pinned hashes from a
+    different tooling run -- is preserved, because rewriting the file from a
+    freshly built ``{"files": ...}`` dict silently destroyed them.
+    """
     entries = {
         path.relative_to(root).as_posix(): sha256_file(path)
         for path in sorted(files)
     }
     target = root / INTEGRITY_FILE
-    target.write_text(json.dumps({"files": entries}, indent=2) + "\n", encoding="utf-8")
+    document: dict[str, object] = {}
+    try:
+        existing = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        existing = None
+    if isinstance(existing, dict) and isinstance(existing.get("files"), dict):
+        # Wrapped form: keep every sibling section, replace only "files".
+        document = dict(existing)
+    document["files"] = entries
+    target.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
     return target
 
 
