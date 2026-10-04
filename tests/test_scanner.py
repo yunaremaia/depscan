@@ -485,6 +485,80 @@ class TestMultiScanner:
         dep = Dependency(name="requests", version="2.28.0", ecosystem="pypi")
         assert self.scanner.check_typosquat(dep) is False
 
+    def test_every_allowlisted_target_is_never_a_typosquat(self):
+        """A name on the known-good list must never be reported, whatever its position.
+
+        ``check_typosquat`` used to test the allowlist *inside* the similarity
+        loop, so an entry that happened to sit within edit distance 2 of an
+        earlier entry (``black`` vs ``flask``, ``rack`` vs ``rich``, ``rake``
+        vs ``rack``, ``orjson`` vs ``ujson``) was flagged before its own exact
+        match could ever be reached.  That made depscan's own CI gate exit 1 on
+        legitimate packages.
+        """
+        for target in self.scanner._typosquat_targets:
+            dep = Dependency(name=target, version="1.0.0", ecosystem="pypi")
+            assert self.scanner.check_typosquat(dep) is False, (
+                f"{target!r} is allowlisted as known-good but was reported as a "
+                f"typosquat of {dep.typosquat_target!r}"
+            )
+            assert dep.typosquat_target == ""
+
+    def test_allowlist_case_insensitive(self):
+        """Allowlist matching must not depend on the case of the declared name."""
+        dep = Dependency(name="Black", version="1.0.0", ecosystem="pypi")
+        assert self.scanner.check_typosquat(dep) is False
+
+    def test_real_typosquats_are_still_detected(self):
+        """Control test: the allowlist fix must not weaken detection.
+
+        A name within edit distance 2 of a target that is *not itself* on the
+        known-good list is a genuine typosquat and must still be reported, with
+        ``typosquat_target`` naming the package it resembles.  The names here
+        are neighbours of the four entries the ordering bug used to flag
+        (``black``/``flask``, ``rack``/``rich``, ``rake``/``rack``,
+        ``orjson``/``ujson``), so they are exactly the cases an over-broad
+        allowlist check would silently swallow.
+        """
+        expected = {
+            "blakc": "black",
+            "blackk": "black",
+            "rakc": "rack",
+            "rackk": "rack",
+            "rakee": "rake",
+            "orjsno": "orjson",
+            "reqests": "requests",
+            "reqeusts": "requests",
+            "numpyy": "numpy",
+            "djangoo": "django",
+            "tensorflaw": "tensorflow",
+        }
+        for name, target in expected.items():
+            assert name not in self.scanner._typosquat_targets, name
+            dep = Dependency(name=name, version="1.0.0", ecosystem="pypi")
+            assert self.scanner.check_typosquat(dep) is True, (
+                f"{name!r} resembles {target!r} but was not detected as a typosquat"
+            )
+            assert dep.is_typosquat is True
+            assert dep.typosquat_target == target
+
+    def test_typosquat_survives_a_known_good_neighbour(self):
+        """Control test: an allowlisted neighbour must not mask a real attack.
+
+        ``rack`` and ``rake`` are both known-good and within edit distance 2 of
+        each other.  ``rakc`` is within distance 2 of both but is on neither
+        list, so it must be reported against the first matching target rather
+        than being cleared by the allowlist check.
+        """
+        dep = Dependency(name="rakc", version="1.0.0", ecosystem="pypi")
+        assert self.scanner.check_typosquat(dep) is True
+        assert dep.typosquat_target in {"rack", "rake"}
+
+    def test_local_dependency_is_never_a_typosquat(self):
+        """A local path dependency bypasses detection entirely, fix included."""
+        dep = Dependency(name="reqests", version="1.0.0", ecosystem="pypi", is_local=True)
+        assert self.scanner.check_typosquat(dep) is False
+        assert dep.typosquat_target == ""
+
 
 class TestScanDirectory:
     def test_scan_nonexistent(self):

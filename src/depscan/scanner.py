@@ -811,6 +811,10 @@ class MultiScanner:
         self.strict = strict
         self._cargo_members: dict[Path, frozenset[Path]] = {}
         self._typosquat_targets = self._load_typosquat_targets()
+        # Known-good names, precomputed so the allowlist check cannot depend on
+        # the iteration order of ``_typosquat_targets``.  Derived from the same
+        # list, so the two can never drift apart.
+        self._known_good = frozenset(self._typosquat_targets)
 
     def _validated(self, deps: list[Dependency]) -> list[Dependency]:
         """Reject invalid names in strict mode; otherwise warn and skip them."""
@@ -1027,9 +1031,15 @@ class MultiScanner:
         if dep.is_local:
             return False
         name_lower = dep.name.lower()
+        # The known-good allowlist is checked *before* the similarity loop.
+        # Checking it inside the loop made the verdict depend on the list's
+        # ordering: a target sitting within edit distance 2 of an earlier entry
+        # (``black``/``flask``, ``rack``/``rich``, ``rake``/``rack``,
+        # ``orjson``/``ujson``) returned True before its own exact match could be
+        # reached, so depscan's own allowlist flagged legitimate packages.
+        if name_lower in self._known_good:
+            return False
         for target in self._typosquat_targets:
-            if name_lower == target:
-                return False  # Known good package
             # Simple similarity check
             if self._levenshtein(name_lower, target, max_distance=2) <= 2:
                 dep.is_typosquat = True

@@ -140,6 +140,42 @@ def test_ci_allow_known_ignores_vulnerabilities():
     assert "No blocking dependency findings" in result.output
 
 
+def test_ci_exits_one_for_real_typosquat(tmp_path):
+    """Control test: a real typosquat on disk must fail ``depscan ci``.
+
+    ``test_ci_exits_one_for_typosquat`` patches ``scan_and_check``, so it only
+    proves the exit-code wiring.  This one scans a real requirements.txt with
+    no mocking at all, which is the only way to catch a regression that makes
+    ``check_typosquat`` silently stop flagging anything.
+    """
+    req = tmp_path / "requirements.txt"
+    req.write_text("reqests==1.0.0\n")
+    result = run_depscan("ci", str(tmp_path))
+    assert result.returncode == 1, (
+        f"exit={result.returncode}\n{result.stdout}\n{result.stderr}"
+    )
+    assert "TYPOSQUAT" in result.stderr
+    assert "reqests" in result.stderr
+    assert "requests" in result.stderr
+
+
+def test_ci_passes_for_known_good_packages(tmp_path):
+    """The other half: the packages the ordering bug used to flag must pass.
+
+    ``black``, ``rack``, ``rake`` and ``orjson`` are all on depscan's own
+    known-good list, yet each sits within edit distance 2 of an earlier entry
+    (``flask``, ``rich``, ``rack``, ``ujson``).  Before the allowlist-ordering
+    fix, scanning them made ``depscan ci`` exit 1.
+    """
+    req = tmp_path / "requirements.txt"
+    req.write_text("black==24.1.0\nrack==3.0.0\nrake==13.0.0\norjson==3.9.0\n")
+    result = run_depscan("ci", str(tmp_path))
+    assert result.returncode == 0, (
+        f"exit={result.returncode}\n{result.stdout}\n{result.stderr}"
+    )
+    assert "TYPOSQUAT" not in result.stderr
+
+
 def test_fail_on_policies():
     typo = {"typosquats": [object()], "vulnerable": []}
     vulnerable = {"typosquats": [], "vulnerable": [object()]}
