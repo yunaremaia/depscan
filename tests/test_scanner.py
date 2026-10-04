@@ -1755,6 +1755,14 @@ def test_scan_directory_keeps_member_dependency_when_root_manifest_is_ignored(tm
     assert [(dep.name, dep.version) for dep in deps] == [("serde", "1.0.190")]
 
 
+def test_scan_directory_keeps_member_manifest_when_root_is_anchor_ignored(tmp_path):
+    # An anchored "/Cargo.toml" ignores only the root manifest, as in git.
+    _cargo_workspace(tmp_path, '[workspace]\nmembers = ["crates/app"]\n', {"crates/app": ""})
+    (tmp_path / ".gitignore").write_text("/Cargo.toml\n")
+    deps = MultiScanner().scan_directory(str(tmp_path))
+    assert [(dep.name, dep.version) for dep in deps] == [("serde", "1.0.190")]
+
+
 def test_scan_directory_tolerates_a_non_utf8_ancestor_manifest(tmp_path):
     _cargo_workspace(tmp_path, '[workspace]\nmembers = ["crates/app"]\n', {"crates/app": ""})
     with open(tmp_path / "Cargo.toml", "ab") as handle:
