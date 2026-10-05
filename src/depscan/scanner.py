@@ -695,13 +695,21 @@ def _cargo_dependency_tables(data: dict) -> list:
     return tables
 
 
+def _cargo_toml(content: str) -> dict | None:
+    """Parse Cargo manifest *content*; None when it is not valid TOML."""
+    try:
+        return tomllib.loads(content)
+    except (tomllib.TOMLDecodeError, TypeError):
+        return None
+
+
 def _cargo_load(directory: Path) -> dict | None:
     """Parse ``directory/Cargo.toml``; None if it is missing or unreadable."""
     try:
         text = (directory / "Cargo.toml").read_text(encoding="utf-8", errors="replace")
-        return tomllib.loads(text)
-    except (OSError, tomllib.TOMLDecodeError):
+    except OSError:
         return None
+    return _cargo_toml(text)
 
 
 def _cargo_workspace_paths(workspace: dict, key: str) -> list[str]:
@@ -872,7 +880,9 @@ class MultiScanner:
             deps = self.parser.parse_cargo_lock(content)
         elif filename == "cargo.toml":
             stop_at = Path(root) if root is not None else None
-            own_root = re.search(r"^\s*\[workspace[\].]", content, re.MULTILINE)
+            # A [workspace] table header only counts outside a multi-line string.
+            # Parsing is the honest test; a regex cannot tell the two apart.
+            own_root = isinstance((_cargo_toml(content) or {}).get("workspace"), dict)
             found = (
                 _cargo_workspace_root(
                     path, stop_at, self._cargo_members if scanned is not None else None

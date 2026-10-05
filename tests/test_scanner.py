@@ -1771,6 +1771,35 @@ def test_cargo_manifest_without_workspace_keys_skips_the_ancestor_lookup(tmp_pat
     assert [(dep.name, dep.version) for dep in deps] == [("serde", "1.0")]
 
 
+def test_cargo_workspace_header_inside_a_multiline_string_is_not_its_own_root(tmp_path):
+    (tmp_path / "Cargo.toml").write_text(
+        '[workspace]\nmembers = ["inner"]\n\n[workspace.dependencies]\nserde = "1.0.200"\n'
+    )
+    inner = tmp_path / "inner"
+    inner.mkdir()
+    (inner / "Cargo.toml").write_text(
+        '[package]\nname = "inner"\nversion = "0.1.0"\n'
+        'description = """\n[workspace]\nnot a table header\n"""\n\n'
+        '[dependencies]\nserde = { workspace = true }\n'
+    )
+    deps = MultiScanner().scan_file(str(inner / "Cargo.toml"), root=str(tmp_path))
+    assert [(dep.name, dep.version) for dep in deps] == [("serde", "1.0.200")]
+
+
+def test_cargo_real_workspace_header_still_skips_the_ancestor_lookup(tmp_path):
+    (tmp_path / "Cargo.toml").write_text('[workspace]\nmembers = ["inner"]\n')
+    inner = tmp_path / "inner"
+    inner.mkdir()
+    (inner / "Cargo.toml").write_text(
+        '[package]\nname = "inner"\nversion = "0.1.0"\n\n'
+        '[dependencies]\nserde = { workspace = true }\n'
+    )
+    with patch("depscan.scanner._cargo_workspace_root") as lookup:
+        deps = MultiScanner().scan_file(str(tmp_path / "Cargo.toml"), root=str(tmp_path))
+    lookup.assert_not_called()  # the root manifest is its own workspace root
+    assert deps == []  # no [workspace.dependencies] here, and no ancestor to inherit from
+
+
 def _cargo_workspace(base, root_manifest, crates):
     """Write a workspace root plus member crates that inherit serde."""
     base.mkdir(parents=True, exist_ok=True)
