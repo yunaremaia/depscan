@@ -31,3 +31,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.report]
+# Measured floor, not a target: 84.89% (1034/1218 stmts) on the full suite, so
+# this only fails on real regression. Bump it as tests land.
+fail_under = 84
