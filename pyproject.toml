@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 # friends. The console script stays `depscan` -- only the distribution name
 # carries the suffix.
 name = "depscan-py"
-version = "0.2.0"
+version = "0.2.1"
 description = "Multi-ecosystem dependency scanner with typosquat detection"
 readme = "README.md"
 license = {text = "MIT"}
