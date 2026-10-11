@@ -259,6 +259,23 @@ no-version-package
         assert by_name["tensorflow"].version == "2.10.0"  # !=
         assert by_name["no-version-package"].version == ""  # no specifier
 
+    def test_parse_requirements_txt_strips_inline_comments(self):
+        content = "requests==2.31.0  # pinned for stability\nflask>=2.0  # needed\n"
+
+        deps = self.parser.parse_requirements_txt(content)
+
+        assert [(dep.name, dep.version) for dep in deps] == [
+            ("requests", "2.31.0"),
+            ("flask", "2.0"),
+        ]
+
+    def test_parse_requirements_txt_preserves_direct_url_fragment(self):
+        url = "git+https://github.com/example/project.git#egg=project"
+
+        deps = self.parser.parse_requirements_txt(url)
+
+        assert [(dep.name, dep.version) for dep in deps] == [(url, "")]
+
     def test_parse_go_mod(self):
         content = '''
 require (
