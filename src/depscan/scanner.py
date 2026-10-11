@@ -445,7 +445,8 @@ class DependencyParser:
         deps = []
         version_specifiers = ("==", ">=", "<=", "!=", "~=", ">", "<")
         for line in content.splitlines():
-            line = DependencyParser._strip_environment_marker(line.strip())
+            line = re.sub(r"\s+#.*$", "", line.strip())
+            line = DependencyParser._strip_environment_marker(line)
             if not line or line.startswith("#"):
                 continue
             found = False
